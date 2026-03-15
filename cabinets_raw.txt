@@ -1,0 +1,21 @@
+    id: "gorna-narozna",
+    name: "Szafka górna narożna",
+    width: 650,
+    height: 700,
+    depth: 330,
+    lockDepth: true,
+    standardWidths: [650, 750, 800, 850, 950],
+    standardHeights: [500, 600, 700, 800, 900, 1000, 1100, 1200],
+    configurationOptions: [
+      "1 półka",
+      "2 półki",
+      "3 półki",
+      "4 półki",
+      "5 półek"
+    ],
+    elements: [
+      { id: "bok-lewy", name: "Bok lewy", height: 720, depth: 530 },
+      { id: "bok-prawy", name: "Bok prawy", height: 720, depth: 530 },
+      { id: "wieniec-dolny", name: "Wieniec dolny", width: 1034, depth: 510 },
+      { id: "wieniec-gorny-przod", name: "Wieniec górny (przód)", width: 1034, depth: 100 },
+      { id: "wieniec-gorny-tyl", name: "Wieniec górny (tył)", width: 1034, depth: 100 },

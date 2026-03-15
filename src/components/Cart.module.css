@@ -1,0 +1,118 @@
+.floatingBtn {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    padding: 1rem 2rem;
+    background: #0070f3;
+    color: white;
+    border: none;
+    border-radius: 2rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 900;
+}
+
+.cartOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.cartPanel {
+    width: 100%;
+    max-width: 400px;
+    background: white;
+    height: 100%;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.header h2 {
+    margin: 0;
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.item {
+    border-bottom: 1px solid #eaeaea;
+    padding: 1rem 0;
+}
+
+.itemHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.removeBtn {
+    background: none;
+    border: none;
+    color: #ff4444;
+    cursor: pointer;
+    font-size: 0.8rem;
+    text-decoration: underline;
+}
+
+.itemDetails {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.itemPrice {
+    font-weight: bold;
+    text-align: right;
+    margin-top: 0.5rem;
+}
+
+.footer {
+    margin-top: 2rem;
+    border-top: 2px solid #eaeaea;
+    padding-top: 1rem;
+}
+
+.totalRow {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.25rem;
+    font-weight: bold;
+}
