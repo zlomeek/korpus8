@@ -1587,9 +1587,8 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                                     <>
                                                         <div style={{ height: '1px', background: '#333', margin: '4px 0' }} />
                                                         <ContextButton
-                                                            label="Dodaj fartuch wzdłuż ściany"
+                                                            label="Dodaj fartuch wzdłuż ściany 🧱"
                                                             onClick={() => { handleAddFartuch(targetCabs); setContextMenu(null); }}
-                                                            icon="🧱"
                                                         />
                                                     </>
                                                 )}

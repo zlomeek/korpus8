@@ -695,12 +695,17 @@ export interface CollisionRect {
     z: number; // local center Z
 }
 
-export function getCollisionRects(cabinet: Cabinet): CollisionRect[] {
+export function getCollisionRects(cabinet: Cabinet, excludeFronts: boolean = false): CollisionRect[] {
     const isL = cabinet.id.endsWith('-90');
     if (isL) {
         const w2 = (cabinet as any).width2 || (cabinet.id.startsWith('gorna-') ? 650 : 900);
         const w1 = cabinet.width;
-        const d = cabinet.depth;
+        let d = cabinet.depth;
+        
+        // If excluding fronts, we might want to slightly reduce depth if we treat depth as including total envelope
+        // However, in this system cabinet.depth is usually corpus depth.
+        // For L-cabinets, excluding fronts means we take the raw L corpus.
+        
         // Optimized L-shape collision as TWO boxes (Back-Left orientation)
         return [
             { w: w1, d: d, x: 0, z: -w2 / 2 + d / 2 },
@@ -711,14 +716,19 @@ export function getCollisionRects(cabinet: Cabinet): CollisionRect[] {
     const isUpperCorner = cabinet.id === 'gorna-narozna' || cabinet.id === 'gorna-narozna-gleboka';
     if (isUpperCorner) {
         const blendaThickness = 18;
-        const effDepth = cabinet.depth + blendaThickness;
-        const zOffset = blendaThickness / 2;
+        // If excludeFronts is true, we ignore the blenda thickness
+        const effDepth = excludeFronts ? cabinet.depth : cabinet.depth + blendaThickness;
+        const zOffset = excludeFronts ? 0 : blendaThickness / 2;
         return [{ w: cabinet.width, d: effDepth, x: 0, z: zOffset }];
     }
 
     if (cabinet.id === 'dolna-narozna') {
+        const corpus = { w: cabinet.width, d: cabinet.depth, x: 0, z: 0 };
+        if (excludeFronts) {
+            return [corpus];
+        }
         return [
-            { w: cabinet.width, d: cabinet.depth, x: 0, z: 0 },
+            corpus,
             { w: cabinet.width, d: 78, x: 0, z: cabinet.depth / 2 + 39 }
         ];
     }
