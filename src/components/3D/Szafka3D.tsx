@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Grid } from "@react-three/drei";
+import { OrbitControls, Grid, Edges, Line } from "@react-three/drei";
 import * as THREE from "three";
 import { useSpring, a } from "@react-spring/three";
 
@@ -27,12 +27,14 @@ interface Szafka3DProps {
     isStaticPreview?: boolean;
     hasDoors?: boolean;
     renderAsGroup?: boolean;
+    leftCutType?: 'none' | 'lyzwa-male' | 'lyzwa-female' | 'lyzwa-female-corner' | 'straight';
+    rightCutType?: 'none' | 'lyzwa-male' | 'lyzwa-female' | 'lyzwa-female-corner' | 'straight';
 }
 
 // Reusable Leg Component matching the reference image
 // Structure: Top Plate + Cylinder Shaft + Bottom Foot
 function CabinetLeg({ position, material }: { position: [number, number, number]; material: THREE.Material }) {
-    const HEIGHT = 60;
+    const HEIGHT = 100;
     const SHAFT_RADIUS = 12; // 24mm diameter shaft
     const CAP_RADIUS = 22;   // 44mm diameter caps
     const CAP_HEIGHT = 5;    // 5mm thick caps
@@ -98,12 +100,13 @@ function CabinetDrawer({
     const sideMetalMaterial = React.useMemo(() => new THREE.MeshStandardMaterial({ color: "#9ca3af", roughness: 0.5, metalness: 0.2 }), []); // Ciemniejszy szary / metalik
 
     // Wymiary
-    const isHighDrawer = height > 160; // Szuflady wyższe niż standardowa (zazwyczaj niska to ok 14cm = 140mm)
+    const isHighDrawer = height > 180; // Szuflady wyższe bez podwyższenia relingiem to zazwyczaj fronty do 180mm (np 720/4)
     const boxDepth = depth - 50; // Skrzynka odrobinę płytsza niż cały korpus
     const clearance = 15; // 15mm luzu po każdej stronie na prowadnicę
     const innerWidth = width - (clearance * 2);
 
-    const sideBoxHeight = 90; // Dolne metalowe boki są zawsze takie same
+    // Ograniczamy wysokość boków dla bardzo niskich frontów (np. 116mm w szafce dolnej piekarnikowej)
+    const sideBoxHeight = height < 130 ? 63 : 90; // Dolne metalowe boki (standard ~90, niskie N ~63)
     const backBoxHeight = isHighDrawer ? 190 : sideBoxHeight; // Stała wysokość tyłu dla wszystkich wysokich szuflad
 
     // Lokalizacje (front jest centrum w osi Z=0, jego tył to Z=-9)
@@ -547,12 +550,14 @@ function LBiFoldDoor({
     rightDoor,
     width,
     width2,
+    depth,
     frontMaterials,
 }: {
     leftDoor: any;
     rightDoor: any;
     width: number;
     width2: number;
+    depth: number;
     frontMaterials: THREE.Material;
 }) {
     const [isOpen, setIsOpen] = React.useState(false);
@@ -561,13 +566,13 @@ function LBiFoldDoor({
     // Lewe skrzydło jest przykrywające (wzdłuż osi Z), jego środek to:
     // Z = width2 / 2 - 2 - f.width / 2 (gdzie f.width to leftDoor.width)
     // Szerokość szafki od osi środkowej to width2/2. Skraj lewy to width2/2 - 2. Zawias jest na tym skraju.
-    // X left panel: -width / 2 + 530 + 18 / 2 + 1
-    const leftDoorX = -width / 2 + 530 + 18 / 2 + 1;
+    // X left panel: -width / 2 + depth + 18 / 2 + 1
+    const leftDoorX = -width / 2 + depth + 18 / 2 + 2;
     const leftDoorZ = width2 / 2 - 2 - leftDoor.width / 2;
 
     const leftPivotX = leftDoorX;
     // Zawias głowny lewego skrzydła (przy ścianie lewej po osi Z)
-    const leftPivotZ = width2 / 2 - 2;
+    const leftPivotZ = width2 / 2 - 2 + 2; // +2 for gap
 
     // Drzwi obracają się o 105 stopni.
     const { mainAngle } = useSpring({
@@ -603,10 +608,10 @@ function LBiFoldDoor({
                     {/* Ten zawias znajduje się na końcu lewego skrzydła. 
                         W osi Z skrzydło ma długość leftDoor.width. 
                         Jego środek jest w Z=0 grupy, więc prawy koniec to Z = -leftDoor.width/2. */}
-                    <a.group position={[18 / 2 + 9, 0, -leftDoor.width / 2]} rotation-y={foldAngle}>
+                    <a.group position={[9, 0, -leftDoor.width / 2]} rotation-y={foldAngle}>
                         {/* 2. Prawe skrzydło - w stanie początkowym jest prostopadłe do lewego */}
                         {/* Po zamknięciu musi znaleźć się w odpowiedniej osi na równi z korpusem */}
-                        <group position={[rightDoor.width / 2 - 8, 0, -10]}>
+                        <group position={[rightDoor.width / 2 - 18, 0, -7]}>
                             <mesh
                                 castShadow
                                 receiveShadow
@@ -631,12 +636,14 @@ function LDoubleDoor({
     f,
     width,
     width2,
+    depth,
     frontMaterials,
     isLeft
 }: {
     f: any;
     width: number;
     width2: number;
+    depth: number;
     frontMaterials: THREE.Material;
     isLeft: boolean;
 }) {
@@ -652,9 +659,9 @@ function LDoubleDoor({
 
     if (isLeft) {
         // Lewe skrzydło
-        const posX = -width / 2 + 530 + 18 / 2 + 1;
+        const posX = -width / 2 + depth + 18 / 2 + 2;
         const offsetZ = width2 / 2 - 2 - f.width / 2;
-        const pivotZ = width2 / 2 - 2;
+        const pivotZ = width2 / 2 - 2 + 2;
 
         return (
             <group>
@@ -677,9 +684,9 @@ function LDoubleDoor({
         );
     } else {
         // Prawe skrzydło
-        const posZ = -width2 / 2 + 530 + 18 / 2 + 1;
+        const posZ = -width2 / 2 + depth + 18 / 2 + 2;
         const offsetX = width / 2 - 2 - f.width / 2;
-        const pivotX = width / 2 - 2;
+        const pivotX = width / 2 - 2 + 2;
 
         return (
             <group>
@@ -713,9 +720,9 @@ function GornaLDoubleDoor({
     const { rotationY } = useSpring({ rotationY: isOpen ? openAngle : 0, config: { mass: 1, tension: 120, friction: 20 } });
 
     if (isLeft) {
-        const posX = -width / 2 + armDepth + 18 / 2 + 1;
+        const posX = -width / 2 + armDepth + 18 / 2 + 2;
         const offsetZ = width2 / 2 - 2 - f.width / 2;
-        const pivotZ = width2 / 2 - 2;
+        const pivotZ = width2 / 2 - 2 + 2;
         return (
             <group>
                 <a.group position={[posX, 0, pivotZ]} rotation-y={rotationY}>
@@ -728,9 +735,9 @@ function GornaLDoubleDoor({
             </group>
         );
     } else {
-        const posZ = -width2 / 2 + armDepth + 18 / 2 + 1;
+        const posZ = -width2 / 2 + armDepth + 18 / 2 + 2;
         const offsetX = width / 2 - 2 - f.width / 2;
-        const pivotX = width / 2 - 2;
+        const pivotX = width / 2 - 2 + 2;
         return (
             <group>
                 <a.group position={[pivotX, 0, posZ]} rotation-y={rotationY}>
@@ -749,10 +756,10 @@ function GornaLBiFoldDoor({
     leftDoor, rightDoor, width, width2, frontMaterials, armDepth,
 }: { leftDoor: any; rightDoor: any; width: number; width2: number; frontMaterials: THREE.Material; armDepth: number; }) {
     const [isOpen, setIsOpen] = React.useState(false);
-    const leftDoorX = -width / 2 + armDepth + 18 / 2 + 1;
+    const leftDoorX = -width / 2 + armDepth + 18 / 2 + 2;
     const leftDoorZ = width2 / 2 - 2 - leftDoor.width / 2;
     const leftPivotX = leftDoorX;
-    const leftPivotZ = width2 / 2 - 2;
+    const leftPivotZ = width2 / 2 - 2 + 2;
     const { mainAngle } = useSpring({ mainAngle: isOpen ? -Math.PI * (105 / 180) : 0, config: { mass: 1, tension: 120, friction: 20 } });
     const { foldAngle } = useSpring({ foldAngle: 0, config: { mass: 1, tension: 120, friction: 20 } });
     return (
@@ -762,8 +769,8 @@ function GornaLBiFoldDoor({
                     <mesh castShadow receiveShadow material={frontMaterials} onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}>
                         <boxGeometry args={[18, leftDoor.height, leftDoor.width]} />
                     </mesh>
-                    <a.group position={[18 / 2 + 9, 0, -leftDoor.width / 2]} rotation-y={foldAngle}>
-                        <group position={[rightDoor.width / 2 - 8, 0, -10]}>
+                    <a.group position={[9, 0, -leftDoor.width / 2]} rotation-y={foldAngle}>
+                        <group position={[rightDoor.width / 2 - 18, 0, -7]}>
                             <mesh castShadow receiveShadow material={frontMaterials} onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}>
                                 <boxGeometry args={[rightDoor.width, rightDoor.height, 18]} />
                             </mesh>
@@ -795,13 +802,15 @@ export default function Szafka3D({
     elements,
     isStaticPreview = false,
     hasDoors = true,
-    renderAsGroup = false
+    renderAsGroup = false,
+    leftCutType,
+    rightCutType
 }: Szafka3DProps) {
     // ... (Constants and materials remain same)
 
     const THICKNESS = 18;
     const GAP = 0.3; // 0.6mm global gap (0.3mm per side)
-    const LEG_HEIGHT = 60; // 60mm legs
+    const LEG_HEIGHT = 100; // 100mm legs
 
     // --- Materials ---
 
@@ -934,29 +943,32 @@ export default function Szafka3D({
     // --- Geometry & Positioning ---
 
 
+    const isTallCabinet = type?.includes('lodowka') || type?.includes('piekarnik');
+    const technicalVoid = (type?.startsWith('dolna-') || isTallCabinet) ? 50 : 20;
+
     const sideGeoArgs: [number, number, number] = [THICKNESS, height, depth];
     const leftSidePos: [number, number, number] = [-width / 2 + THICKNESS / 2, 0, 0];
     const rightSidePos: [number, number, number] = [width / 2 - THICKNESS / 2, 0, 0];
 
     const rimWidth = width - 2 * THICKNESS - 2 * GAP;
 
-    const bottomRimDepth = Math.max(10, depth - 20);
+    const bottomRimDepth = Math.max(10, depth - technicalVoid);
     const bottomRimGeoArgs: [number, number, number] = [rimWidth, THICKNESS, bottomRimDepth];
-    const bottomRimPos: [number, number, number] = [0, -height / 2 + THICKNESS / 2, -depth / 2 + 20 + bottomRimDepth / 2];
+    const bottomRimPos: [number, number, number] = [0, -height / 2 + THICKNESS / 2, -depth / 2 + technicalVoid + bottomRimDepth / 2];
 
     // Full Top Rim
     const topRimFullGeoArgs: [number, number, number] = [rimWidth, THICKNESS, bottomRimDepth]; // Same depth as bottom (recessed for back)
-    const topRimFullPos: [number, number, number] = [0, height / 2 - THICKNESS / 2, -depth / 2 + 20 + bottomRimDepth / 2];
+    const topRimFullPos: [number, number, number] = [0, height / 2 - THICKNESS / 2, -depth / 2 + technicalVoid + bottomRimDepth / 2];
 
     const topRimDepth = 100;
     const topRimGeoArgs: [number, number, number] = [rimWidth, THICKNESS, topRimDepth];
-    const topRimFrontPos: [number, number, number] = [0, height / 2 - THICKNESS / 2, depth / 2 - 50];
-    const topRimBackPos: [number, number, number] = [0, height / 2 - THICKNESS / 2, -depth / 2 + 70];
+    const topRimFrontPos: [number, number, number] = [0, height / 2 - THICKNESS / 2, depth / 2 - topRimDepth / 2];
+    const topRimBackPos: [number, number, number] = [0, height / 2 - THICKNESS / 2, -depth / 2 + technicalVoid + topRimDepth / 2];
 
     const BACK_THICKNESS = 3;
     const backPanelWidth = width - 2 * THICKNESS - 2 * GAP;
     const backPanelGeoArgs: [number, number, number] = [backPanelWidth, height - 2 * GAP, BACK_THICKNESS];
-    const backPanelPos: [number, number, number] = [0, 0, -depth / 2 + 20 - BACK_THICKNESS / 2];
+    const backPanelPos: [number, number, number] = [0, 0, -depth / 2 + technicalVoid - BACK_THICKNESS / 2];
 
     // Leg Positioning Logic
     // User Request:
@@ -967,13 +979,14 @@ export default function Szafka3D({
 
     const LEG_RADIUS = 22;
     const DIST_SIDE = 30;
-    const DIST_FRONT_BACK = 50;
+    const DIST_FRONT = 50;
+    const DIST_BACK = 100;
 
     const legY = -height / 2 - LEG_HEIGHT / 2;
 
     // Z Positions (Common for all)
-    const legZ_Front = depth / 2 - DIST_FRONT_BACK - LEG_RADIUS;
-    const legZ_Back = -depth / 2 + DIST_FRONT_BACK + LEG_RADIUS;
+    const legZ_Front = depth / 2 - DIST_FRONT - LEG_RADIUS;
+    const legZ_Back = -depth / 2 + DIST_BACK + LEG_RADIUS;
 
     // Leg Array
     const legs = [];
@@ -1006,8 +1019,8 @@ export default function Szafka3D({
     }
 
     if (type === 'dolna-narozna-90') {
-        const leftDepth = 530;
-        const backDepth = 530;
+        const leftDepth = depth;
+        const backDepth = depth;
 
         // CNC cut from square, so the rims go all the way to 530 depth.
         const rimLeftDepth = leftDepth; // 530
@@ -1096,11 +1109,11 @@ export default function Szafka3D({
                     if (isBiFold) {
                         const leftDoor = frontMeshes.find(f => f.name.includes('(lewy)'));
                         const rightDoor = frontMeshes.find(f => f.name.includes('(prawy)'));
-                        if (leftDoor && rightDoor) return <LBiFoldDoor key="bifold" leftDoor={leftDoor} rightDoor={rightDoor} width={width} width2={w2} frontMaterials={frontMaterials} />;
+                        if (leftDoor && rightDoor) return <LBiFoldDoor key="bifold" leftDoor={leftDoor} rightDoor={rightDoor} width={width} width2={w2} depth={depth} frontMaterials={frontMaterials} />;
                     } else if (isDouble) {
                         return frontMeshes.map((f, i) => {
-                            if (f.name.includes('(lewy)')) return <LDoubleDoor key={`front-${i}`} f={f} width={width} width2={w2} frontMaterials={frontMaterials} isLeft={true} />;
-                            if (f.name.includes('(prawy)')) return <LDoubleDoor key={`front-${i}`} f={f} width={width} width2={w2} frontMaterials={frontMaterials} isLeft={false} />;
+                            if (f.name.includes('(lewy)')) return <LDoubleDoor key={`front-${i}`} f={f} width={width} width2={w2} depth={depth} frontMaterials={frontMaterials} isLeft={true} />;
+                            if (f.name.includes('(prawy)')) return <LDoubleDoor key={`front-${i}`} f={f} width={width} width2={w2} depth={depth} frontMaterials={frontMaterials} isLeft={false} />;
                             return null;
                         });
                     }
@@ -1108,14 +1121,14 @@ export default function Szafka3D({
                 })()}
 
                 {/* Nogi */}
-                <CabinetLeg position={[-width / 2 + 50, legY, -w2 / 2 + 50]} material={legMaterial} />
-                <CabinetLeg position={[width / 2 - 50, legY, -w2 / 2 + 50]} material={legMaterial} />
-                <CabinetLeg position={[width / 2 - 50, legY, -w2 / 2 + backDepth - 50]} material={legMaterial} />
-                <CabinetLeg position={[-width / 2 + leftDepth - 50, legY, -w2 / 2 + backDepth - 50]} material={legMaterial} />
-                <CabinetLeg position={[-width / 2 + leftDepth - 50, legY, w2 / 2 - 50]} material={legMaterial} />
-                <CabinetLeg position={[-width / 2 + 50, legY, w2 / 2 - 50]} material={legMaterial} />
-                <CabinetLeg position={[-width / 2 + leftDepth - 50, legY, -w2 / 2 + 50]} material={legMaterial} />
-                <CabinetLeg position={[-width / 2 + 50, legY, -w2 / 2 + backDepth - 50]} material={legMaterial} />
+                <CabinetLeg position={[-width / 2 + DIST_BACK, legY, -w2 / 2 + DIST_BACK]} material={legMaterial} />
+                <CabinetLeg position={[width / 2 - DIST_FRONT, legY, -w2 / 2 + DIST_BACK]} material={legMaterial} />
+                <CabinetLeg position={[width / 2 - DIST_FRONT, legY, -w2 / 2 + backDepth - DIST_FRONT]} material={legMaterial} />
+                <CabinetLeg position={[-width / 2 + leftDepth - DIST_FRONT, legY, -w2 / 2 + backDepth - DIST_FRONT]} material={legMaterial} />
+                <CabinetLeg position={[-width / 2 + leftDepth - DIST_FRONT, legY, w2 / 2 - DIST_FRONT]} material={legMaterial} />
+                <CabinetLeg position={[-width / 2 + DIST_BACK, legY, w2 / 2 - DIST_FRONT]} material={legMaterial} />
+                <CabinetLeg position={[-width / 2 + leftDepth - DIST_FRONT, legY, -w2 / 2 + DIST_BACK]} material={legMaterial} />
+                <CabinetLeg position={[-width / 2 + DIST_BACK, legY, -w2 / 2 + backDepth - DIST_FRONT]} material={legMaterial} />
             </group>
         );
 
@@ -1289,7 +1302,306 @@ export default function Szafka3D({
         );
     }
 
-    const mainLegHeight = LEG_HEIGHT;
+    if (type?.startsWith('blat-')) {
+        const leftCut = leftCutType || 'none';
+        const rightCut = rightCutType || 'none';
+
+        if (leftCut !== 'none' || rightCut !== 'none') {
+            const buildBlatShape = (w: number, d: number, left: string, right: string) => {
+                const shape = new THREE.Shape();
+                if (right === 'lyzwa-male') shape.moveTo(w / 2 - 30, -d / 2);
+                else shape.moveTo(w / 2, -d / 2);
+
+                if (left === 'lyzwa-male') {
+                    shape.lineTo(-w / 2 + 30, -d / 2);
+                    shape.lineTo(-w / 2 + 30, d / 2 - 35);
+                    shape.quadraticCurveTo(-w / 2 + 30, d / 2 - 30, -w / 2 + 25, d / 2 - 25);
+                    shape.lineTo(-w / 2, d / 2);
+                } else if (left === 'lyzwa-female') {
+                    shape.lineTo(-w / 2, -d / 2);
+                    shape.lineTo(-w / 2, d / 2 - 35);
+                    shape.quadraticCurveTo(-w / 2, d / 2 - 30, -w / 2 + 5, d / 2 - 25);
+                    shape.lineTo(-w / 2 + 30, d / 2);
+                } else if (left === 'lyzwa-female-corner') {
+                    shape.lineTo(-w / 2, -d / 2);
+                    shape.lineTo(-w / 2, d / 2 - 30);
+                    shape.lineTo(-w / 2 + 565, d / 2 - 30);
+                    shape.quadraticCurveTo(-w / 2 + 570, d / 2 - 30, -w / 2 + 575, d / 2 - 25);
+                    shape.lineTo(-w / 2 + 600, d / 2);
+                } else {
+                    shape.lineTo(-w / 2, -d / 2);
+                    shape.lineTo(-w / 2, d / 2);
+                }
+
+                if (right === 'lyzwa-male') {
+                    shape.lineTo(w / 2, d / 2);
+                    shape.lineTo(w / 2 - 25, d / 2 - 25);
+                    shape.quadraticCurveTo(w / 2 - 30, d / 2 - 30, w / 2 - 30, d / 2 - 35);
+                    shape.lineTo(w / 2 - 30, -d / 2);
+                } else if (right === 'lyzwa-female-corner') {
+                    shape.lineTo(w / 2 - 600, d / 2);
+                    shape.lineTo(w / 2 - 600 + 25, d / 2 - 25);
+                    shape.quadraticCurveTo(w / 2 - 600 + 30, d / 2 - 30, w / 2 - 600 + 35, d / 2 - 30);
+                    shape.lineTo(w / 2, d / 2 - 30);
+                    shape.lineTo(w / 2, -d / 2);
+                } else if (right === 'lyzwa-female') {
+                    shape.lineTo(w / 2 - 30, d / 2);
+                    shape.lineTo(w / 2 - 5, d / 2 - 25);
+                    shape.quadraticCurveTo(w / 2, d / 2 - 30, w / 2, d / 2 - 35);
+                    shape.lineTo(w / 2, -d / 2);
+                } else {
+                    shape.lineTo(w / 2, d / 2);
+                    shape.lineTo(w / 2, -d / 2);
+                }
+                return shape;
+            };
+
+            const shape = buildBlatShape(width, depth, leftCut, rightCut);
+            const jointLines = useMemo(() => {
+                const segments: THREE.Vector3[][] = [];
+
+                // Męski frez (w kodzie jako lyzwa-female lub lyzwa-male)
+                if (leftCut === 'lyzwa-female' || leftCut === 'lyzwa-male') {
+                    const p = new THREE.Path();
+                    if (leftCut === 'lyzwa-male') {
+                        p.moveTo(-width / 2 + 30, -depth / 2); // Start od samego początku krawędzi
+                        p.lineTo(-width / 2 + 30, depth / 2 - 35);
+                        p.quadraticCurveTo(-width / 2 + 30, depth / 2 - 30, -width / 2 + 25, depth / 2 - 25);
+                        p.lineTo(-width / 2, depth / 2);
+                    } else {
+                        p.moveTo(-width / 2, -depth / 2); // Start od samego początku krawędzi
+                        p.lineTo(-width / 2, depth / 2 - 35);
+                        p.quadraticCurveTo(-width / 2, depth / 2 - 30, -width / 2 + 5, depth / 2 - 25);
+                        p.lineTo(-width / 2 + 30, depth / 2);
+                    }
+                    const pts = p.getPoints(32);
+                    segments.push(pts.map(pt => new THREE.Vector3(pt.x, pt.y, 0)));
+                    segments.push(pts.map(pt => new THREE.Vector3(pt.x, pt.y, height)));
+                }
+
+                if (rightCut === 'lyzwa-female' || rightCut === 'lyzwa-male') {
+                    const p = new THREE.Path();
+                    if (rightCut === 'lyzwa-male') {
+                        p.moveTo(width / 2, depth / 2);
+                        p.lineTo(width / 2 - 25, depth / 2 - 25);
+                        p.quadraticCurveTo(width / 2 - 30, depth / 2 - 30, width / 2 - 30, depth / 2 - 35);
+                        p.lineTo(width / 2 - 30, -depth / 2); // Do samego końca krawędzi
+                    } else {
+                        p.moveTo(width / 2 - 30, depth / 2);
+                        p.lineTo(width / 2 - 5, depth / 2 - 25);
+                        p.quadraticCurveTo(width / 2, depth / 2 - 30, width / 2, depth / 2 - 35);
+                        p.lineTo(width / 2, -depth / 2); // Do samego końca krawędzi
+                    }
+                    const pts = p.getPoints(32);
+                    segments.push(pts.map(pt => new THREE.Vector3(pt.x, pt.y, 0)));
+                    segments.push(pts.map(pt => new THREE.Vector3(pt.x, pt.y, height)));
+                }
+
+                return segments;
+            }, [leftCut, rightCut, width, depth, height]);
+
+            return (
+                <group position={[0, isStaticPreview ? 0 : height / 2, 0]}>
+                    <mesh position={[0, height / 2, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow material={woodMaterial}>
+                        <extrudeGeometry args={[shape, { depth: height, bevelEnabled: false, curveSegments: 32 }]} />
+                        {jointLines.map((pts, idx) => (
+                            <Line
+                                key={idx}
+                                points={pts}
+                                color="#666666"
+                                lineWidth={0.2}
+                            />
+                        ))}
+                    </mesh>
+                </group>
+            );
+        }
+
+        const blatGeoArgs: [number, number, number] = [width, height, depth];
+        return (
+            <group position={[0, isStaticPreview ? 0 : height / 2, 0]}>
+                <mesh castShadow receiveShadow material={woodMaterial}>
+                    <boxGeometry args={blatGeoArgs} />
+                </mesh>
+            </group>
+        );
+    }
+
+    // --- LISTWA MIĘDZY SZAFKOWA / PODSZAFKOWA ---
+    if (type === 'gorna-listwa-miedzy-szafkowa' || type === 'gorna-listwa-podszafkowa') {
+        const leftCut = leftCutType || 'none';
+        const rightCut = rightCutType || 'none';
+
+        const buildStripShape = (w: number, d: number, left: string, right: string) => {
+            const shape = new THREE.Shape();
+            // Point 1: Back-Left
+            if (left === 'angle-45-left') {
+                shape.moveTo(-w / 2 + d, -d / 2);
+            } else {
+                shape.moveTo(-w / 2, -d / 2);
+            }
+            // Point 2: Back-Right
+            if (right === 'angle-45-right') {
+                shape.lineTo(w / 2 - d, -d / 2);
+            } else {
+                shape.lineTo(w / 2, -d / 2);
+            }
+            // Point 3: Front-Right
+            shape.lineTo(w / 2, d / 2);
+            // Point 4: Front-Left
+            shape.lineTo(-w / 2, d / 2);
+            // Close
+            if (left === 'angle-45-left') {
+                shape.lineTo(-w / 2 + d, -d / 2);
+            } else {
+                shape.lineTo(-w / 2, -d / 2);
+            }
+            return shape;
+        };
+
+        const isPodszafkowa = type === 'gorna-listwa-podszafkowa';
+        const ledProfileOffset = depth >= 340 ? 158 : 120; // 15.8cm for 34.8, 12cm for 31
+
+        const buildLedStripShape = (w: number, d: number, left: string, right: string, yf: number, yb: number) => {
+            const ls = new THREE.Shape();
+            const tlx = left === 'angle-45-left' ? -w / 2 - yb + d / 2 : -w / 2;
+            const trx = right === 'angle-45-right' ? w / 2 + yb - d / 2 : w / 2;
+            const brx = right === 'angle-45-right' ? w / 2 + yf - d / 2 : w / 2;
+            const blx = left === 'angle-45-left' ? -w / 2 - yf + d / 2 : -w / 2;
+
+            ls.moveTo(tlx, yb);
+            ls.lineTo(trx, yb);
+            ls.lineTo(brx, yf);
+            ls.lineTo(blx, yf);
+            ls.lineTo(tlx, yb);
+            return ls;
+        };
+
+        const shape = buildStripShape(width, depth, leftCut, rightCut);
+        const extrudeSettings = { depth: height, bevelEnabled: false };
+        const ledExtrudeSettings = { depth: 7, bevelEnabled: false };
+
+        let ledMeshes = null;
+        if (isPodszafkowa) {
+            // Front of shape is at y = -depth/2.
+            const y_front = -depth / 2 + ledProfileOffset;
+            const y_back = y_front + 22; // Profile is 22mm deep, moving towards the back (+Y)
+            
+            // Note: For shapes, smaller Y is visually bottom, larger Y is top.
+            // y_front is the smaller value, y_front+4 is slightly towards the back.
+            const shapeFrontBlack = buildLedStripShape(width, depth, leftCut, rightCut, y_front, y_front + 4);
+            const shapeMidWhite   = buildLedStripShape(width, depth, leftCut, rightCut, y_front + 4, y_back - 4);
+            const shapeBackBlack  = buildLedStripShape(width, depth, leftCut, rightCut, y_back - 4, y_back);
+
+            ledMeshes = (
+                <group position={[0, 0, -2]}>
+                    <mesh castShadow receiveShadow>
+                        <extrudeGeometry args={[shapeBackBlack, ledExtrudeSettings]} />
+                        <meshStandardMaterial attach="material-0" color="#111111" roughness={0.6} />
+                        <meshStandardMaterial attach="material-1" color="#888888" metalness={0.8} roughness={0.2} />
+                    </mesh>
+                    <mesh castShadow receiveShadow>
+                        <extrudeGeometry args={[shapeMidWhite, ledExtrudeSettings]} />
+                        <meshStandardMaterial attach="material-0" color="#ffffff" emissive="#ffffff" emissiveIntensity={0.6} roughness={0.1} />
+                        <meshStandardMaterial attach="material-1" color="#888888" metalness={0.8} roughness={0.2} />
+                    </mesh>
+                    <mesh castShadow receiveShadow>
+                        <extrudeGeometry args={[shapeFrontBlack, ledExtrudeSettings]} />
+                        <meshStandardMaterial attach="material-0" color="#111111" roughness={0.6} />
+                        <meshStandardMaterial attach="material-1" color="#888888" metalness={0.8} roughness={0.2} />
+                    </mesh>
+                </group>
+            );
+        }
+
+        // Since we are extruding, the depth is height, 
+        // and we will rotate the whole thing to lay flat.
+
+        const stripGroup = (
+            <group rotation={[-Math.PI / 2, 0, 0]} position={[0, -height / 2, 0]}>
+                <mesh castShadow receiveShadow material={bodyMaterial}>
+                    <extrudeGeometry args={[shape, extrudeSettings]} />
+                </mesh>
+                <Edges color="#555" />
+                {ledMeshes}
+            </group>
+        );
+
+        if (renderAsGroup) return stripGroup;
+
+        return (
+            <div style={{ width: "100%", height: "100%", minHeight: isStaticPreview ? "220px" : "400px", background: "#f5f5f5", borderRadius: "8px", overflow: "hidden" }}>
+                <Canvas shadows camera={{ fov: 30, near: 1, far: 5000, position: [0, height * 12, depth * 15] }}>
+                    <OrbitControls makeDefault />
+                    <ambientLight intensity={1.0} />
+                    <directionalLight position={[100, 500, 100]} intensity={1.5} castShadow />
+                    {stripGroup}
+                </Canvas>
+            </div>
+        );
+    }
+
+    if (type === 'fartuch-kuchenny') {
+        const fartuchGroup = (
+            // DraggableCabinet renderuje Szafka3D z group position={[0, yOriginOffset, 0]} = [0, height/2, 0]
+            // co oznacza że geometria tutaj na [0,0,0] (centered) trafi od dolnej krawędzi do górnej.
+            // Finalnie: bottom = position[1], top = position[1] + height ✓
+            <group>
+                <mesh castShadow receiveShadow material={bodyMaterial}>
+                    <boxGeometry args={[width, height, depth]} />
+                </mesh>
+                <lineSegments>
+                    <edgesGeometry args={[new THREE.BoxGeometry(width, height, depth)]} />
+                    <lineBasicMaterial color="#555" />
+                </lineSegments>
+            </group>
+        );
+
+        if (renderAsGroup) return fartuchGroup;
+
+        return (
+            <div style={{ width: "100%", height: "100%", minHeight: isStaticPreview ? "220px" : "400px", background: "#f5f5f5", borderRadius: "8px", overflow: "hidden" }}>
+                <Canvas shadows camera={{ fov: 30, near: 1, far: 5000, position: [0, height * 2, width * 1.5] }}>
+                    <OrbitControls makeDefault />
+                    <ambientLight intensity={1.0} />
+                    <directionalLight position={[100, 500, 100]} intensity={1.5} castShadow />
+                    {fartuchGroup}
+                </Canvas>
+            </div>
+        );
+    }
+
+    if (type === 'blenda-meblowa') {
+        // Blenda: pionowy panel z płyty meblowej 18mm
+        // width = szerokość, height = wysokość, depth = 18mm (grubość)
+        // Bottom-edge convention: DraggableCabinet renderuje z yOriginOffset=height/2
+        const blendaGroup = (
+            <group>
+                <mesh castShadow receiveShadow material={bodyMaterial}>
+                    <boxGeometry args={[width, height, depth]} />
+                </mesh>
+                <lineSegments>
+                    <edgesGeometry args={[new THREE.BoxGeometry(width, height, depth)]} />
+                    <lineBasicMaterial color="#888" />
+                </lineSegments>
+            </group>
+        );
+
+        if (renderAsGroup) return blendaGroup;
+
+        return (
+            <div style={{ width: "100%", height: "100%", minHeight: isStaticPreview ? "220px" : "400px", background: "#f5f5f5", borderRadius: "8px", overflow: "hidden" }}>
+                <Canvas shadows camera={{ fov: 40, near: 1, far: 5000, position: [width * 1.2, height * 0.8, depth * 8] }}>
+                    <OrbitControls makeDefault />
+                    <ambientLight intensity={1.0} />
+                    <directionalLight position={[100, 500, 100]} intensity={1.5} castShadow />
+                    {blendaGroup}
+                </Canvas>
+            </div>
+        );
+    }
+
+    const mainLegHeight = (!type || !type.includes('gorna')) ? LEG_HEIGHT : 0;
 
     const mainCabinetGroup = (
         <group position={[0, mainLegHeight / 2, 0]}>
@@ -1319,9 +1631,9 @@ export default function Szafka3D({
                         <boxGeometry args={[rimWidth, 100, THICKNESS]} />
                     </mesh>
 
-                    {/* 2. Rear Vertical Rim (Fixed at the top, recessed 18mm) */}
+                    {/* 2. Rear Vertical Rim (Fixed at the top, recessed for technical void) */}
                     <mesh
-                        position={[0, height / 2 - 100 / 2, -depth / 2 + 18 + THICKNESS / 2]}
+                        position={[0, height / 2 - 100 / 2, -depth / 2 + technicalVoid + THICKNESS / 2]}
                         castShadow
                         receiveShadow
                         material={rimMaterials}
@@ -1330,11 +1642,8 @@ export default function Szafka3D({
                     </mesh>
 
                     {/* 3. Low Back (18mm, H=150) */}
-                    {/* Starts on top of bottom rim? Let's check bottom rim pos. Bottom rim is at Y = -height/2 + THICKNESS/2. */}
-                    {/* So top of bottom rim is -height/2 + THICKNESS. */}
-                    {/* Back center Y = -height/2 + THICKNESS + 150/2. */}
                     <mesh
-                        position={[0, -height / 2 + THICKNESS + 150 / 2, -depth / 2 + 18 + THICKNESS / 2]}
+                        position={[0, -height / 2 + THICKNESS + 150 / 2, -depth / 2 + technicalVoid + THICKNESS / 2]}
                         castShadow
                         receiveShadow
                         material={sideMaterials} // Using side/body material for 18mm back
@@ -1366,7 +1675,7 @@ export default function Szafka3D({
                         return (
                             <>
                                 {/* 1. Middle Rim */}
-                                <mesh position={[0, middleRimY, -depth / 2 + 20 + bottomRimDepth / 2]} castShadow receiveShadow material={rimMaterials}>
+                                <mesh position={[0, middleRimY, -depth / 2 + technicalVoid + bottomRimDepth / 2]} castShadow receiveShadow material={rimMaterials}>
                                     <boxGeometry args={[rimWidth, THICKNESS, bottomRimDepth]} />
                                 </mesh>
 
@@ -1470,13 +1779,13 @@ export default function Szafka3D({
                         return (
                             <>
                                 {/* Rims */}
-                                <mesh position={[0, rimUnderY, -depth / 2 + 20 + bottomRimDepth / 2]} castShadow receiveShadow material={rimMaterials}>
+                                <mesh position={[0, rimUnderY, -depth / 2 + technicalVoid + bottomRimDepth / 2]} castShadow receiveShadow material={rimMaterials}>
                                     <boxGeometry args={[rimWidth, THICKNESS, bottomRimDepth]} />
                                 </mesh>
-                                <mesh position={[0, rimAboveOvenY, -depth / 2 + 20 + bottomRimDepth / 2]} castShadow receiveShadow material={rimMaterials}>
+                                <mesh position={[0, rimAboveOvenY, -depth / 2 + technicalVoid + bottomRimDepth / 2]} castShadow receiveShadow material={rimMaterials}>
                                     <boxGeometry args={[rimWidth, THICKNESS, bottomRimDepth]} />
                                 </mesh>
-                                <mesh position={[0, rimAboveMicrowaveY, -depth / 2 + 20 + bottomRimDepth / 2]} castShadow receiveShadow material={rimMaterials}>
+                                <mesh position={[0, rimAboveMicrowaveY, -depth / 2 + technicalVoid + bottomRimDepth / 2]} castShadow receiveShadow material={rimMaterials}>
                                     <boxGeometry args={[rimWidth, THICKNESS, bottomRimDepth]} />
                                 </mesh>
 
@@ -1502,7 +1811,7 @@ export default function Szafka3D({
                                         */}
 
                                 {/* Bottom Rim (Standard) */}
-                                <mesh position={[0, bottomRimY, -depth / 2 + 20 + bottomRimDepth / 2]} castShadow receiveShadow material={rimMaterials}>
+                                <mesh position={[0, bottomRimY, -depth / 2 + technicalVoid + bottomRimDepth / 2]} castShadow receiveShadow material={rimMaterials}>
                                     <boxGeometry args={[rimWidth, THICKNESS, bottomRimDepth]} />
                                 </mesh>
 
@@ -1526,7 +1835,7 @@ export default function Szafka3D({
                                 {/* Bottom Back Panel */}
                                 {/* Niche Height: 720. Panel Height: 720 - 4. Center: Middle of 720. */}
                                 <mesh
-                                    position={[0, -height / 2 + bottomSpaceHeight / 2, -depth / 2 + 17 + 1.5]}
+                                    position={[0, -height / 2 + bottomSpaceHeight / 2, -depth / 2 + (technicalVoid - 3) + 1.5]}
                                     castShadow
                                     receiveShadow
                                     material={backPanelMaterials}
@@ -1543,7 +1852,7 @@ export default function Szafka3D({
                                     if (topH > 0) {
                                         return (
                                             <mesh
-                                                position={[0, topCenterY, -depth / 2 + 17 + 1.5]}
+                                                position={[0, topCenterY, -depth / 2 + (technicalVoid - 3) + 1.5]}
                                                 castShadow
                                                 receiveShadow
                                                 material={backPanelMaterials}
@@ -1561,6 +1870,51 @@ export default function Szafka3D({
                             </>
                         );
                     })()}
+                </>
+            ) : type === 'dolna-piekarnik-podblatowa' ? (
+                <>
+                    {/* Wieniec Srodkowy (pod piekarnik) */}
+                    {(() => {
+                        const ovenH = ovenSpaceHeight || 600;
+                        const wieniecY = height / 2 - ovenH - THICKNESS / 2;
+                        const bottomSpaceHeight = height - ovenH;
+
+                        return (
+                            <>
+                                <mesh position={[0, wieniecY, -depth / 2 + technicalVoid + bottomRimDepth / 2]} castShadow receiveShadow material={rimMaterials}>
+                                    <boxGeometry args={[rimWidth, THICKNESS, bottomRimDepth]} />
+                                </mesh>
+
+                                {/* Plecy Dół (Tylko za szufladą) */}
+                                {bottomSpaceHeight > 4 && (
+                                    <mesh
+                                        position={[0, -height / 2 + bottomSpaceHeight / 2, -depth / 2 + (technicalVoid - 3) + 1.5]}
+                                        castShadow
+                                        receiveShadow
+                                        material={backPanelMaterials}
+                                    >
+                                        <boxGeometry args={[width - 4, bottomSpaceHeight - 4, 3]} />
+                                    </mesh>
+                                )}
+                            </>
+                        );
+                    })()}
+
+                    {/* Top Rims (Standard or Full) */}
+                    {isFullTop ? (
+                        <mesh position={topRimFullPos} castShadow receiveShadow material={rimMaterials}>
+                            <boxGeometry args={topRimFullGeoArgs} />
+                        </mesh>
+                    ) : (
+                        <>
+                            <mesh position={topRimFrontPos} castShadow receiveShadow material={rimMaterials}>
+                                <boxGeometry args={topRimGeoArgs} />
+                            </mesh>
+                            <mesh position={topRimBackPos} castShadow receiveShadow material={rimMaterials}>
+                                <boxGeometry args={topRimGeoArgs} />
+                            </mesh>
+                        </>
+                    )}
                 </>
             ) : (
                 <>
@@ -1625,7 +1979,7 @@ export default function Szafka3D({
 
                     return groupShelves.map((shelf, i) => {
                         const yPos = startY + spacing * (i + 1);
-                        const shelfZ = -depth / 2 + 20 + shelf.depth / 2; // Anchored to back panel to leave gap at front
+                        const shelfZ = -depth / 2 + technicalVoid + shelf.depth / 2; // Anchored to back panel to leave gap at front
 
                         let shelfX = 0;
                         if (type === 'dolna-narozna' || type === 'gorna-narozna-gleboka') {
@@ -1697,16 +2051,16 @@ export default function Szafka3D({
             {type === 'dolna-lodowka-3' && hasDoors && (() => {
                 const drawerH = 170;
                 const RIM = 18;
-                
+
                 // Obliczamy dostępną wysokość dla sekcji szuflad (dół pod lodówką)
                 // fHeight to wysokość niszy na lodówkę (standardowo ok. 1780)
                 const fHeight = fridgeSpaceHeight || 1780;
                 const shiftUp = ovenBaseHeight === 760 ? 40 : (ovenBaseHeight === 780 ? 60 : 0);
-                
+
                 // Wysokość do spodu wieńca środkowego: (RIM + fHeight + shiftUp)
                 // Dostępna przestrzeń od wieńca dolnego: (RIM + fHeight + shiftUp) - RIM = fHeight + shiftUp
                 const availableH = fHeight + shiftUp;
-                
+
                 // Rozmieszczamy 5 szuflad: pierwsza na dole, ostatnia pod samym wieńcem (z marginesem 100mm na górną szufladę/wieniec)
                 // Odstęp (step) = (Dostępna wysokość - wysokość jednej szuflady - margines górny) / 4
                 const topMargin = 100;
@@ -1760,7 +2114,7 @@ export default function Szafka3D({
                 }
 
                 return (
-                    <group position={[0, 0, depth / 2 + 18 / 2 + 1]}>
+                    <group position={[0, 0, depth / 2 + 18 / 2 + 2]}>
                         {cargoComponent}
                         {/* Odsunięcie frontu o 1mm od korpusu (szpara), grubość frontu bazowo 18 */}
                         {regularFronts.map((f, i) => {
@@ -1773,6 +2127,8 @@ export default function Szafka3D({
                                 zOffset = -18; // Cofnięcie o 18mm w głąb w stosunku do głównego frontu
                             } else if (f.height === height || f.height === height - 4) {
                                 yOffset = 0;
+                            } else if (type === 'dolna-piekarnik-podblatowa') {
+                                yOffset = -height / 2 + f.height / 2 + 2;
                             } else if (type !== 'dolna-narozna' && type !== 'gorna-narozna' && type !== 'dolna-piekarnik' && !type?.startsWith('dolna-lodowka') && frontMeshes.length > 1) {
                                 // Gdy w szafce dolnej są szuflady (sterta), budujemy je w pętli od dołu do góry
                                 // height = dany front, total u dołu to akumulacja poprzednich

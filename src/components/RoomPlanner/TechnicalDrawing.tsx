@@ -6,9 +6,18 @@ import { PlacedCabinet } from "./RoomPlanner";
 interface TechnicalDrawingProps {
     placedCabinets: PlacedCabinet[];
     roomDimensions: { width: number; depth: number; height: number };
+    filter?: 'all' | 'lower' | 'upper';
 }
 
-export default function TechnicalDrawing({ placedCabinets, roomDimensions }: TechnicalDrawingProps) {
+export default function TechnicalDrawing({ placedCabinets, roomDimensions, filter = 'all' }: TechnicalDrawingProps) {
+    const filteredCabinets = placedCabinets.filter(c => {
+        if (filter === 'all') return true;
+        const isGorna = c.cabinet.id.includes('gorna');
+        if (filter === 'lower') return !isGorna;
+        if (filter === 'upper') return isGorna;
+        return true;
+    });
+
     const { width, depth } = roomDimensions;
     const padding = 350; // Increased padding for vertical text
     const viewBoxW = width + padding * 2;
@@ -60,7 +69,7 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions }: Tec
     );
 
     // Filter cabinets by wall
-    const backWallCabinets = placedCabinets
+    const backWallCabinets = filteredCabinets
         .filter(c => Math.abs(c.rotation[1]) < 0.1)
         .sort((a, b) => a.position[0] - b.position[0]);
 
@@ -72,7 +81,7 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions }: Tec
         >
             {/* Legend / Title */}
             <text x={padding} y={padding / 2 - 50} fontSize="72" fontWeight="bold" fill="#333">
-                RZUT KUCHNI - WIDOK TECHNICZNY
+                RZUT KUCHNI - WIDOK TECHNICZNY ({filter === 'all' ? 'Wszystko' : (filter === 'lower' ? 'Dół' : 'Góra')})
             </text>
 
             {/* Room Boundary */}
@@ -92,7 +101,7 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions }: Tec
             <text x={padding + width + 100} y={padding + depth/2} textAnchor="middle" transform={`rotate(90, ${padding + width + 100}, ${padding + depth/2})`} fontSize="36" fontWeight="bold" fill="#999">ŚCIANA PRAWA</text>
 
             {/* Cabinets */}
-            {placedCabinets.map((cab) => {
+            {filteredCabinets.map((cab) => {
                 const cabW = cab.cabinet.width;
                 const cabD = cab.cabinet.depth;
                 const rotation = cab.rotation[1];
@@ -193,7 +202,7 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions }: Tec
             )}
             {/* Side Wall Dimensions (LEFT) */}
             {(() => {
-                const leftWallCabinets = placedCabinets
+                const leftWallCabinets = filteredCabinets
                     .filter(c => Math.abs(c.rotation[1] - Math.PI/2) < 0.1 || Math.abs(c.rotation[1] + Math.PI/2) < 0.1)
                     .filter(c => Math.abs(c.position[0] - (-halfW + c.cabinet.depth/2)) < 100)
                     .sort((a, b) => a.position[2] - b.position[2]);
@@ -237,7 +246,7 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions }: Tec
 
             {/* Side Wall Dimensions (RIGHT) */}
             {(() => {
-                const rightWallCabinets = placedCabinets
+                const rightWallCabinets = filteredCabinets
                     .filter(c => Math.abs(c.rotation[1] - Math.PI/2) < 0.1 || Math.abs(c.rotation[1] + Math.PI/2) < 0.1)
                     .filter(c => Math.abs(c.position[0] - (halfW - c.cabinet.depth/2)) < 100)
                     .sort((a, b) => a.position[2] - b.position[2]);

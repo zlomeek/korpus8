@@ -60,6 +60,14 @@ export default function AdminPanel({ settings, onSettingsChange }: AdminPanelPro
                                 onChange={(e) => handleChange("pricePerLeg", Number(e.target.value))}
                             />
                         </label>
+                        <label>
+                            Cena m² Blatu (PLN)
+                            <input
+                                type="number"
+                                value={localSettings.pricePerM2Countertop || 250}
+                                onChange={(e) => handleChange("pricePerM2Countertop", Number(e.target.value))}
+                            />
+                        </label>
                     </div>
                 </div>
             )}

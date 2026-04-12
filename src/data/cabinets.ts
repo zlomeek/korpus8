@@ -32,6 +32,9 @@ export interface Cabinet {
   bodyColor?: string;
   hasFronts?: boolean;
   width2?: number; // corner cabinets width2
+  isCustomWidth?: boolean; // flag for custom width option
+  leftCutType?: 'none' | 'lyzwa-male' | 'lyzwa-female' | 'lyzwa-female-corner' | 'straight' | 'angle-45-left' | 'angle-45-right';
+  rightCutType?: 'none' | 'lyzwa-male' | 'lyzwa-female' | 'lyzwa-female-corner' | 'straight' | 'angle-45-left' | 'angle-45-right';
 }
 
 export const cabinetTemplates: Cabinet[] = [
@@ -40,7 +43,7 @@ export const cabinetTemplates: Cabinet[] = [
     name: "Szafka dolna standardowa",
     width: 600, // Default to 600
     height: 720, // Default to 720
-    depth: 530, // Default to 530
+    depth: 560, // Default to 560
     lockDepth: true,
     standardWidths: [150, 200, 300, 400, 450, 500, 600, 800, 900],
     standardHeights: [720, 760, 780],
@@ -55,9 +58,9 @@ export const cabinetTemplates: Cabinet[] = [
       "3 szuflady (2 wysokie jedna niska)"
     ],
     elements: [
-      { id: "bok-lewy", name: "Bok lewy", height: 720, depth: 530 },
-      { id: "bok-prawy", name: "Bok prawy", height: 720, depth: 530 },
-      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 510 }, // 530 - 20
+      { id: "bok-lewy", name: "Bok lewy", height: 720, depth: 560 },
+      { id: "bok-prawy", name: "Bok prawy", height: 720, depth: 560 },
+      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 510 }, // 560 - 50
       { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 510 },
       { id: "plecy", name: "Plecy", width: 596, height: 716 },
     ],
@@ -67,7 +70,7 @@ export const cabinetTemplates: Cabinet[] = [
     name: "Szafka zlewowa",
     width: 600,
     height: 720,
-    depth: 530,
+    depth: 560,
     lockDepth: true,
     standardWidths: [500, 600, 800, 900, 1000],
     standardHeights: [720, 760, 780],
@@ -78,8 +81,8 @@ export const cabinetTemplates: Cabinet[] = [
       "Para drzwi"
     ],
     elements: [
-      { id: "bok-lewy", name: "Bok lewy", height: 720, depth: 530 },
-      { id: "bok-prawy", name: "Bok prawy", height: 720, depth: 530 },
+      { id: "bok-lewy", name: "Bok lewy", height: 720, depth: 560 },
+      { id: "bok-prawy", name: "Bok prawy", height: 720, depth: 560 },
       { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 510 },
       { id: "wieniec-gorny-przod-pion", name: "Wieniec górny pionowy (przód)", width: 564, height: 100, depth: 18 },
       { id: "wieniec-gorny-tyl-pion", name: "Wieniec górny pionowy (tył)", width: 564, height: 100, depth: 18 },
@@ -91,7 +94,7 @@ export const cabinetTemplates: Cabinet[] = [
     name: "Szafka dolna narożna",
     width: 1020,
     height: 720,
-    depth: 530,
+    depth: 560,
     lockDepth: true,
     standardWidths: [1020, 1070, 1120, 1170, 1220],
     standardHeights: [720, 760, 780],
@@ -102,8 +105,8 @@ export const cabinetTemplates: Cabinet[] = [
       "Drzwi"
     ],
     elements: [
-      { id: "bok-lewy", name: "Bok lewy", height: 720, depth: 530 },
-      { id: "bok-prawy", name: "Bok prawy", height: 720, depth: 530 },
+      { id: "bok-lewy", name: "Bok lewy", height: 720, depth: 560 },
+      { id: "bok-prawy", name: "Bok prawy", height: 720, depth: 560 },
       { id: "wieniec-dolny", name: "Wieniec dolny", width: 1034, depth: 510 },
       { id: "wieniec-gorny-przod", name: "Wieniec górny (przód)", width: 1034, depth: 100 },
       { id: "wieniec-gorny-tyl", name: "Wieniec górny (tył)", width: 1034, depth: 100 },
@@ -115,7 +118,7 @@ export const cabinetTemplates: Cabinet[] = [
     name: "Szafka dolna narożna 90 (L)",
     width: 900,
     height: 720,
-    depth: 530,
+    depth: 560,
     lockDepth: true,
     standardWidths: [710, 800, 900, 1000],
     standardHeights: [720, 760, 780],
@@ -137,7 +140,7 @@ export const cabinetTemplates: Cabinet[] = [
     depth: 330,
     width2: 650,
     lockDepth: true,
-    standardWidths: [650, 750, 800, 850],
+    standardWidths: [620, 650, 750, 800, 850],
     standardHeights: [500, 600, 700, 800, 900, 1000, 1100, 1200],
     configurationOptions: [
       "Drzwi łamane",
@@ -160,7 +163,7 @@ export const cabinetTemplates: Cabinet[] = [
     height: 700,
     depth: 330,
     lockDepth: true,
-    standardWidths: [300, 400, 450, 500, 600, 800, 900],
+    standardWidths: [300, 400, 450, 500, 550, 600, 800, 900],
     standardHeights: [500, 600, 700, 800, 900, 1000, 1100, 1200],
     standardDepths: [330],
     configurationOptions: [
@@ -206,7 +209,7 @@ export const cabinetTemplates: Cabinet[] = [
     height: 700,
     depth: 330,
     lockDepth: true,
-    standardWidths: [650, 750, 800, 850, 950],
+    standardWidths: [620, 650, 750, 800, 850, 950],
     standardHeights: [500, 600, 700, 800, 900, 1000, 1100, 1200],
     configurationOptions: [
       "Drzwi",
@@ -229,7 +232,7 @@ export const cabinetTemplates: Cabinet[] = [
     id: "gorna-narozna-gleboka",
     name: "Szafka górna narożna głęboka",
     width: 900,
-    height: 700,
+    height: 400,
     depth: 560,
     lockDepth: true,
     standardWidths: [900, 1000, 1100],
@@ -263,9 +266,9 @@ export const cabinetTemplates: Cabinet[] = [
     elements: [
       { id: "bok-lewy", name: "Bok lewy", height: 2320, depth: 560 },
       { id: "bok-prawy", name: "Bok prawy", height: 2320, depth: 560 },
-      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 540 },
-      { id: "wieniec-srodkowy", name: "Wieniec środkowy (nad lodówką)", width: 564, depth: 540 },
-      { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 540 },
+      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 510 },
+      { id: "wieniec-srodkowy", name: "Wieniec środkowy (nad lodówką)", width: 564, depth: 510 },
+      { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 510 },
       { id: "listwa-wzmoc-1", name: "Listwa wzmacniająca", width: 564, height: 100, depth: 18 },
       { id: "listwa-wzmoc-2", name: "Listwa wzmacniająca", width: 564, height: 100, depth: 18 },
       { id: "plecy-gora", name: "Plecy (góra)", width: 596, height: 300 }, // Example height
@@ -287,9 +290,9 @@ export const cabinetTemplates: Cabinet[] = [
     elements: [
       { id: "bok-lewy", name: "Bok lewy", height: 2320, depth: 560 },
       { id: "bok-prawy", name: "Bok prawy", height: 2320, depth: 560 },
-      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 540 },
-      { id: "wieniec-srodkowy", name: "Wieniec środkowy (nad lodówką)", width: 564, depth: 540 },
-      { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 540 },
+      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 510 },
+      { id: "wieniec-srodkowy", name: "Wieniec środkowy (nad lodówką)", width: 564, depth: 510 },
+      { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 510 },
       { id: "listwa-wzmoc-1", name: "Listwa wzmacniająca", width: 564, height: 100, depth: 18 },
       { id: "listwa-wzmoc-2", name: "Listwa wzmacniająca", width: 564, height: 100, depth: 18 },
       { id: "plecy-gora", name: "Plecy (góra)", width: 596, height: 300 }, // Example height
@@ -311,9 +314,9 @@ export const cabinetTemplates: Cabinet[] = [
     elements: [
       { id: "bok-lewy", name: "Bok lewy", height: 2320, depth: 560 },
       { id: "bok-prawy", name: "Bok prawy", height: 2320, depth: 560 },
-      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 540 },
-      { id: "wieniec-srodkowy", name: "Wieniec środkowy (nad szufladami)", width: 564, depth: 540 },
-      { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 540 },
+      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 510 },
+      { id: "wieniec-srodkowy", name: "Wieniec środkowy (nad szufladami)", width: 564, depth: 510 },
+      { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 510 },
       { id: "listwa-wzmoc-1", name: "Listwa wzmacniająca", width: 564, height: 100, depth: 18 },
       { id: "listwa-wzmoc-2", name: "Listwa wzmacniająca", width: 564, height: 100, depth: 18 },
       { id: "plecy-gora", name: "Plecy (góra)", width: 596, height: 300 },
@@ -332,10 +335,10 @@ export const cabinetTemplates: Cabinet[] = [
     elements: [
       { id: "bok-lewy", name: "Bok lewy", height: 2070, depth: 560 },
       { id: "bok-prawy", name: "Bok prawy", height: 2070, depth: 560 },
-      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 540 },
-      { id: "wieniec-srodkowy-dol", name: "Wieniec środkowy (pod piekarnikiem)", width: 564, depth: 540 },
-      { id: "wieniec-srodkowy-gora", name: "Wieniec środkowy (nad piekarnikiem)", width: 564, depth: 540 },
-      { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 540 },
+      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 510 },
+      { id: "wieniec-srodkowy-dol", name: "Wieniec środkowy (pod piekarnikiem)", width: 564, depth: 510 },
+      { id: "wieniec-srodkowy-gora", name: "Wieniec środkowy (nad piekarnikiem)", width: 564, depth: 510 },
+      { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 510 },
       { id: "plecy", name: "Plecy", width: 596, height: 2066 }, // Placeholder
     ],
   },
@@ -355,12 +358,43 @@ export const cabinetTemplates: Cabinet[] = [
     elements: [
       { id: "bok-lewy", name: "Bok lewy", height: 2320, depth: 560 },
       { id: "bok-prawy", name: "Bok prawy", height: 2320, depth: 560 },
-      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 540 },
-      { id: "wieniec-srodkowy", name: "Wieniec środkowy", width: 564, depth: 540 },
-      { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 540 },
+      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 510 },
+      { id: "wieniec-srodkowy", name: "Wieniec środkowy", width: 564, depth: 510 },
+      { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 510 },
       { id: "listwa-wzmoc-1", name: "Listwa wzmacniająca", width: 564, height: 100, depth: 18 },
       { id: "listwa-wzmoc-2", name: "Listwa wzmacniająca", width: 564, height: 100, depth: 18 },
       { id: "plecy-gora", name: "Plecy (góra)", width: 596, height: 300 },
     ],
   },
+  {
+    id: "dolna-piekarnik-podblatowa",
+    name: "Szafka dolna pod piekarnik",
+    width: 600,
+    height: 720,
+    depth: 560,
+    lockDepth: true,
+    standardWidths: [600],
+    standardHeights: [720, 760, 780],
+    ovenSpaceHeight: 600,
+    isFullTop: false,
+    elements: [],
+  },
+  {
+    id: "blat-standard",
+    name: "Blat Laminowany 38mm",
+    width: 2000,
+    height: 38,
+    depth: 600,
+    lockDepth: false,
+    elements: [],
+  },
+  {
+    id: "fartuch-kuchenny",
+    name: "Fartuch kuchenny",
+    width: 1000,
+    height: 550,
+    depth: 18,
+    lockDepth: true,
+    elements: [],
+  }
 ];

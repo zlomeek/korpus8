@@ -4,6 +4,7 @@ export interface PricingSettings {
     pricePerM2Body: number;
     pricePerM2Back: number;
     pricePerLeg: number;
+    pricePerM2Countertop?: number;
 }
 
 export interface CalculationResult {
@@ -20,9 +21,29 @@ export const defaultPricingSettings: PricingSettings = {
     pricePerM2Body: 200,
     pricePerM2Back: 30,
     pricePerLeg: 4,
+    pricePerM2Countertop: 250,
 };
 
 export function calculateCabinet(cabinet: Cabinet, settings: PricingSettings = defaultPricingSettings): CalculationResult {
+    if (cabinet.id.startsWith('blat-')) {
+        const area = (cabinet.width / 1000) * (cabinet.depth / 1000);
+        let cost = area * (settings.pricePerM2Countertop || 250);
+
+        if ((cabinet as any).isCustomWidth) {
+            cost = cost * 1.5;
+        }
+
+        return {
+            totalM2Body: Number(area.toFixed(4)),
+            totalM2Back: 0,
+            boardCost: Number(cost.toFixed(2)),
+            backCost: 0,
+            legsCount: 0,
+            legsCost: 0,
+            total: Number(cost.toFixed(2))
+        };
+    }
+
     let totalM2Body = 0;
     let totalM2Back = 0;
 
@@ -100,10 +121,15 @@ export function calculateCabinet(cabinet: Cabinet, settings: PricingSettings = d
     }
 
     const legsCost = legsCount * settings.pricePerLeg;
-    const total = boardCost + backCost + legsCost;
+    let total = boardCost + backCost + legsCost;
+
+    // Apply custom width premium (1.5x)
+    if ((cabinet as any).isCustomWidth) {
+        total = total * 1.5;
+    }
 
     return {
-        totalM2Body: parseFloat(totalM2Body.toFixed(6)),
+        totalM2Body: Number(totalM2Body.toFixed(4)),
         totalM2Back: parseFloat(totalM2Back.toFixed(6)),
         boardCost: parseFloat(boardCost.toFixed(2)),
         backCost: parseFloat(backCost.toFixed(2)),
@@ -133,7 +159,13 @@ export function generateFixedElements(
     frontMaterial: string = "",
     splitCargoFront: boolean = false
 ): any[] {
+    if (cabinetId.startsWith("blat-")) {
+        return [];
+    }
+
     const elements = [];
+    const isTallCabinet = cabinetId.includes('lodowka') || cabinetId.includes('piekarnik');
+    const technicalVoid = (cabinetId.startsWith('dolna-') || isTallCabinet) ? 50 : 20;
 
     if (cabinetId === 'dolna-narozna-90' || cabinetId === 'gorna-narozna-90') {
         elements.push(
@@ -167,7 +199,7 @@ export function generateFixedElements(
             id: 'wieniec-dolny',
             name: 'Wieniec dolny',
             width: width - 36,
-            depth: depth - 20
+            depth: depth - technicalVoid
         });
 
         if (cabinetId === 'dolna-lodowka' || cabinetId === 'dolna-lodowka-2' || cabinetId === 'dolna-lodowka-3' || cabinetId === 'dolna-lodowka-4') {
@@ -176,7 +208,7 @@ export function generateFixedElements(
                     id: 'wieniec-dolny-dodatkowy',
                     name: 'Wieniec dolny dodatkowy',
                     width: width - 36,
-                    depth: depth - 20
+                    depth: depth - technicalVoid
                 });
                 elements.push({
                     id: 'plecy-dol-dodatkowe',
@@ -191,7 +223,7 @@ export function generateFixedElements(
                 id: 'wieniec-srodkowy',
                 name: 'Wieniec środkowy',
                 width: width - 36,
-                depth: depth - 20
+                depth: depth - technicalVoid
             });
 
             if (cabinetId === 'dolna-lodowka-2' || cabinetId === 'dolna-lodowka-3' || cabinetId === 'dolna-lodowka-4') {
@@ -234,21 +266,21 @@ export function generateFixedElements(
                 id: 'wieniec-srodkowy-dol',
                 name: 'Wieniec środkowy (pod piekarnikiem)',
                 width: width - 36,
-                depth: depth - 20
+                depth: depth - technicalVoid
             });
 
             elements.push({
                 id: 'wieniec-srodkowy-gora',
                 name: 'Wieniec środkowy (nad piekarnikiem)',
                 width: width - 36,
-                depth: depth - 20
+                depth: depth - technicalVoid
             });
 
             elements.push({
                 id: 'wieniec-srodkowy-mikrofala',
                 name: 'Wieniec środkowy (nad mikrofalką)',
                 width: width - 36,
-                depth: depth - 20
+                depth: depth - technicalVoid
             });
 
             // Configs Under - Add shelves/drawers to element list? 
@@ -284,6 +316,24 @@ export function generateFixedElements(
                 });
             }
 
+        } else if (cabinetId === 'dolna-piekarnik-podblatowa') {
+            elements.push({
+                id: 'wieniec-srodkowy',
+                name: 'Wieniec pod piekarnik',
+                width: width - 36,
+                depth: depth - technicalVoid
+            });
+
+            // Plecy góra-dół: Tylko pod piekarnikiem za szufladą
+            const bottomBackHeight = height - ovenSpaceHeight - 4; // minus 4mm luzu
+            if (bottomBackHeight > 0) {
+                elements.push({
+                    id: 'plecy-dol',
+                    name: 'Plecy (dół)',
+                    width: width - 4,
+                    height: bottomBackHeight
+                });
+            }
         }
 
         // 4. WIENIEC GÓRNY / WIEŃCE GÓRNE
@@ -308,7 +358,7 @@ export function generateFixedElements(
                 id: 'wieniec-gorny-pelny',
                 name: 'Wieniec górny (pełny)',
                 width: width - 36,
-                depth: depth - 20
+                depth: depth - technicalVoid
             });
         } else {
             // Standard Top Rims
@@ -403,14 +453,14 @@ export function generateFixedElements(
             else if (lowerOpt.includes('10')) count = 10;
 
             for (let i = 0; i < count; i++) {
-                // Wymiary półki: standardowo szerokość - 36, głębokość - 40 (daje 490 dla 530 i 2cm luzu z przodu)
+                // Wymiary półki: standardowo szerokość - 36, głębokość - (technicalVoid + 20) (daje 490 dla 560 i 2cm luzu z przodu)
                 let shelfWidth = width - 36;
-                let shelfDepth = depth - 40;
+                let shelfDepth = depth - (technicalVoid + 20);
 
-                if (cabinetId === 'dolna-narozna' || cabinetId === 'gorna-narozna-gleboka') {
-                    // W szafce narożnej półka idzie po całości wnęki, odliczamy tylko boki
+                if (cabinetId === 'gorna-narozna-gleboka') {
+                    // W szafce narożnej górnej głębokiej półka idzie po całości wnęki, odliczamy tylko boki
                     shelfWidth = width - 36;
-                    shelfDepth = depth - 20; // Wyjątek: półka bez luzu 2cm z przodu
+                    shelfDepth = depth - 20;
                 }
 
                 // Półki w słupku piecowym dzieli się na górne (nad) i dolne (pod)
@@ -457,7 +507,7 @@ export function generateFixedElements(
             // W szafce narożnej L (90) mamy dwoje drzwi
             if (isDrzwiLamane) {
                 const fW_L = width2 - depth - 4 - 18;
-                const fW_P = width - depth - 4 - 18;
+                const fW_P = width - depth - 4;
                 elements.push({ id: 'front-lamany-1', name: 'Front łamany (lewy)', width: fW_L, height: height - 4, type: 'front', material: frontMaterial });
                 elements.push({ id: 'front-lamany-2', name: 'Front łamany (prawy)', width: fW_P, height: height - 4, type: 'front', material: frontMaterial });
             } else if (isParaDrzwi) {
@@ -569,6 +619,12 @@ export function generateFixedElements(
                 const topPiekarnikId = configAbove?.includes('Siłowniki') ? 'front-klapa-piekarnik-gora' : 'front-piekarnik-gora';
                 elements.push({ id: topPiekarnikId, name: 'Front (góra)', width: width - 4, height: topSpaceH - 4, type: 'front', material: frontMaterial });
             }
+        } else if (cabinetId === 'dolna-piekarnik-podblatowa') {
+            // Front dla dolnej szuflady (nachodzi na wieniec pod piekarnikiem)
+            const drawerH = height - ovenSpaceHeight;
+            if (drawerH > 0) {
+                elements.push({ id: 'front-szuflada-piekarnik-niska', name: 'Front szuflady', width: width - 4, height: drawerH - 4, type: 'front', material: frontMaterial });
+            }
         } else {
             // Szafki standardowe dopasowane do `configUnder` lub `configAbove`
             const hasDrawers = configsToParse.some(o => o.toLowerCase().includes('szuflad'));
@@ -630,4 +686,42 @@ export function generateFixedElements(
     }
 
     return elements;
+}
+
+export interface CollisionRect {
+    w: number;
+    d: number;
+    x: number; // local center X
+    z: number; // local center Z
+}
+
+export function getCollisionRects(cabinet: Cabinet): CollisionRect[] {
+    const isL = cabinet.id.endsWith('-90');
+    if (isL) {
+        const w2 = (cabinet as any).width2 || (cabinet.id.startsWith('gorna-') ? 650 : 900);
+        const w1 = cabinet.width;
+        const d = cabinet.depth;
+        // Optimized L-shape collision as TWO boxes (Back-Left orientation)
+        return [
+            { w: w1, d: d, x: 0, z: -w2 / 2 + d / 2 },
+            { w: d, d: w2 - d, x: -w1 / 2 + d / 2, z: d / 2 }
+        ];
+    }
+
+    const isUpperCorner = cabinet.id === 'gorna-narozna' || cabinet.id === 'gorna-narozna-gleboka';
+    if (isUpperCorner) {
+        const blendaThickness = 18;
+        const effDepth = cabinet.depth + blendaThickness;
+        const zOffset = blendaThickness / 2;
+        return [{ w: cabinet.width, d: effDepth, x: 0, z: zOffset }];
+    }
+
+    if (cabinet.id === 'dolna-narozna') {
+        return [
+            { w: cabinet.width, d: cabinet.depth, x: 0, z: 0 },
+            { w: cabinet.width, d: 78, x: 0, z: cabinet.depth / 2 + 39 }
+        ];
+    }
+
+    return [{ w: cabinet.width, d: cabinet.depth, x: 0, z: 0 }];
 }

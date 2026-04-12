@@ -81,6 +81,9 @@ export default function RoomScene({
                 minPolarAngle={isTechnicalView ? 0 : Math.PI / 10}
                 maxPolarAngle={isTechnicalView ? 0.01 : Math.PI / 2 - 0.1}
                 maxDistance={25000}
+                minDistance={10}
+                zoomSpeed={1.8}
+                enableDamping={false}
                 target={[0, 0, 0]}
                 enableRotate={!isTechnicalView}
             />

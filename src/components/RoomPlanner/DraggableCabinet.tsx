@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { Cabinet } from "@/data/cabinets";
 import Szafka3D from "@/components/3D/Szafka3D";
 import { PlacedCabinet } from "./RoomPlanner";
+import { getCollisionRects, CollisionRect } from "@/lib/calculate";
 
 interface DraggableCabinetProps {
     uuid: string;
@@ -25,28 +26,6 @@ interface DraggableCabinetProps {
 }
 
 // === COLLISION HELPERS ===
-
-interface CollisionRect {
-    w: number;
-    d: number;
-    x: number; // local center X
-    z: number; // local center Z
-}
-
-function getCollisionRects(cabinet: Cabinet): CollisionRect[] {
-    const isL = cabinet.id.endsWith('-90');
-    if (isL) {
-        const w2 = (cabinet as any).width2 || 900;
-        const w1 = cabinet.width;
-        const d = cabinet.depth;
-        // Optimized L-shape collision as TWO boxes (Back-Left orientation)
-        return [
-            { w: w1, d: d, x: 0, z: -w2 / 2 + d / 2 },
-            { w: d, d: w2 - d, x: -w1 / 2 + d / 2, z: d / 2 }
-        ];
-    }
-    return [{ w: cabinet.width, d: cabinet.depth, x: 0, z: 0 }];
-}
 
 function getRectWorldBounds(p: THREE.Vector3, r: number, rect: CollisionRect) {
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -174,11 +153,14 @@ export default function DraggableCabinet({
             const controls = transformRef.current;
 
             const changeCallback = () => {
+                if (!controls || !controls.enabled) return;
+
                 const requestedPos = target.position.clone();
                 const rotY = target.rotation.y;
                 const oldPos = new THREE.Vector3(...lastValidPos);
 
-                const rects = getCollisionRects(cabinet);
+                // Calculate rects for snapping/bounds ONLY (excluding front panels to avoid wall gaps)
+                const rects = getCollisionRects(cabinet, true);
                 const getFullBounds = (p: THREE.Vector3, r: number) => {
                     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
                     rects.forEach(rect => {
@@ -194,57 +176,130 @@ export default function DraggableCabinet({
                 const roomHalfW = roomDimensions.width / 2;
                 const roomHalfZ = roomDimensions.depth / 2;
                 const SNAP = 50;
-                const LEG_H = 60;
-                const h1 = cabinet.id.startsWith('gorna-') ? cabinet.height : (cabinet.height + LEG_H);
+                const LEG_H = 100;
+                const isFloating = cabinet.id.startsWith('gorna-') || cabinet.id.startsWith('blat-') || cabinet.id === 'fartuch-kuchenny' || cabinet.id === 'blenda-meblowa';
+                const h1 = isFloating ? cabinet.height : (cabinet.height + LEG_H);
 
                 // Axis Snapping & Room Bounds
                 const tryAxis = (axis: 'x' | 'y' | 'z', currentVal: number, oldVal: number) => {
                     let testPos = target.position.clone();
                     testPos[axis] = currentVal;
-                    
-                    let finalVal = currentVal;
+
+                    let wallSnapOffset = 0;
                     // Snapping to walls
                     if (axis === 'x') {
                         const b = getFullBounds(testPos, rotY);
-                        if (Math.abs(b.maxX - roomHalfW) < SNAP) finalVal = currentVal - (b.maxX - roomHalfW);
-                        if (Math.abs(b.minX - (-roomHalfW)) < SNAP) finalVal = currentVal - (b.minX + roomHalfW);
+                        if (Math.abs(b.maxX - roomHalfW) < SNAP) wallSnapOffset = -(b.maxX - roomHalfW);
+                        if (Math.abs(b.minX - (-roomHalfW)) < SNAP) wallSnapOffset = -(b.minX + roomHalfW);
                     } else if (axis === 'z') {
                         const b = getFullBounds(testPos, rotY);
-                        if (Math.abs(b.maxZ - roomHalfZ) < SNAP) finalVal = currentVal - (b.maxZ - roomHalfZ);
-                        if (Math.abs(b.minZ - (-roomHalfZ)) < SNAP) finalVal = currentVal - (b.minZ + roomHalfZ);
-                    } else if (axis === 'y' && cabinet.id.startsWith('gorna-')) {
-                        if (Math.abs(finalVal + h1 - roomDimensions.height) < SNAP) finalVal = roomDimensions.height - h1;
-                        if (Math.abs(finalVal - 0) < SNAP) finalVal = 0;
+                        if (Math.abs(b.maxZ - roomHalfZ) < SNAP) wallSnapOffset = -(b.maxZ - roomHalfZ);
+                        if (Math.abs(b.minZ - (-roomHalfZ)) < SNAP) wallSnapOffset = -(b.minZ + roomHalfZ);
+                    } else if (axis === 'y' && isFloating) {
+                        if (Math.abs(currentVal + h1 - roomDimensions.height) < SNAP) wallSnapOffset = (roomDimensions.height - h1) - currentVal;
+                        if (Math.abs(currentVal - 0) < SNAP) wallSnapOffset = -currentVal;
                     }
 
                     // Snapping to others
-                    otherCabinets.forEach(other => {
-                        const h2 = other.cabinet.id.startsWith('gorna-') ? other.cabinet.height : (other.cabinet.height + LEG_H);
-                        const yOverlap = !(testPos.y + h1 < other.position[1] || other.position[1] + h2 < testPos.y);
-                        if (!yOverlap) return;
+                    let bestSnapOffset = 0;
+                    let minSnapDist = Infinity;
 
-                        const otherRects = getCollisionRects(other.cabinet);
+                    otherCabinets.forEach(other => {
+                        const isOtherFloating = other.cabinet.id.startsWith('gorna-') || other.cabinet.id.startsWith('blat-') || other.cabinet.id === 'fartuch-kuchenny' || other.cabinet.id === 'blenda-meblowa';
+                        const h2 = isOtherFloating ? other.cabinet.height : (other.cabinet.height + LEG_H);
+
+                        const yOverlapPhysics = !(testPos.y + h1 <= other.position[1] || other.position[1] + h2 <= testPos.y);
+                        const topTouchesBottom = Math.abs((testPos.y + h1) - other.position[1]) < 2;
+                        const bottomTouchesTop = Math.abs(testPos.y - (other.position[1] + h2)) < 2;
+
+                        if (!yOverlapPhysics && !topTouchesBottom && !bottomTouchesTop && axis !== 'y') return;
+
+                        const otherRects = getCollisionRects(other.cabinet, true);
                         const otherPosVec = new THREE.Vector3(...other.position);
-                        
-                        // Per-rectangle snapping for maximum accuracy (especially for L-shapes)
-                        rects.forEach(myRect => {
+                        const snapRects = getCollisionRects(cabinet, true);
+
+                        snapRects.forEach(myRect => {
                             const myB = getRectWorldBounds(testPos, rotY, myRect);
                             otherRects.forEach(oRect => {
                                 const ob = getRectWorldBounds(otherPosVec, other.rotation[1], oRect);
-                                
-                                const xOverlap = !(myB.maxX < ob.minX || ob.maxX < myB.minX);
-                                const zOverlap = !(myB.maxZ < ob.minZ || ob.maxZ < myB.minZ);
+
+                                const xOverlap = !(myB.maxX <= ob.minX + 0.1 || ob.maxX <= myB.minX + 0.1);
+                                const zOverlap = !(myB.maxZ <= ob.minZ + 0.1 || ob.maxZ <= myB.minZ + 0.1);
 
                                 if (axis === 'x' && zOverlap) {
-                                    if (Math.abs(myB.minX - ob.maxX) < SNAP) finalVal = currentVal + (ob.maxX - myB.minX);
-                                    if (Math.abs(myB.maxX - ob.minX) < SNAP) finalVal = currentVal - (myB.maxX - ob.minX);
+                                    if (yOverlapPhysics || topTouchesBottom || bottomTouchesTop) {
+                                        const d1 = Math.abs(myB.minX - ob.maxX);
+                                        const d2 = Math.abs(myB.maxX - ob.minX);
+                                        const d3 = Math.abs(myB.minX - ob.minX);
+                                        const d4 = Math.abs(myB.maxX - ob.maxX);
+
+                                        if (d1 < SNAP && d1 < minSnapDist) {
+                                            minSnapDist = d1; bestSnapOffset = (ob.maxX - myB.minX);
+                                        }
+                                        if (d2 < SNAP && d2 < minSnapDist) {
+                                            minSnapDist = d2; bestSnapOffset = (ob.minX - myB.maxX);
+                                        }
+                                        if (d3 < SNAP && d3 < minSnapDist) {
+                                            minSnapDist = d3; bestSnapOffset = (ob.minX - myB.minX);
+                                        }
+                                        if (d4 < SNAP && d4 < minSnapDist) {
+                                            minSnapDist = d4; bestSnapOffset = (ob.maxX - myB.maxX);
+                                        }
+                                    }
                                 } else if (axis === 'z' && xOverlap) {
-                                    if (Math.abs(myB.minZ - ob.maxZ) < SNAP) finalVal = currentVal + (ob.maxZ - myB.minZ);
-                                    if (Math.abs(myB.maxZ - ob.minZ) < SNAP) finalVal = currentVal - (myB.maxZ - ob.minZ);
+                                    if (yOverlapPhysics || topTouchesBottom || bottomTouchesTop) {
+                                        const d1 = Math.abs(myB.minZ - ob.maxZ);
+                                        const d2 = Math.abs(myB.maxZ - ob.minZ);
+                                        const d3 = Math.abs(myB.minZ - ob.minZ);
+                                        const d4 = Math.abs(myB.maxZ - ob.maxZ);
+
+                                        if (d1 < SNAP && d1 < minSnapDist) {
+                                            minSnapDist = d1; bestSnapOffset = (ob.maxZ - myB.minZ);
+                                        }
+                                        if (d2 < SNAP && d2 < minSnapDist) {
+                                            minSnapDist = d2; bestSnapOffset = (ob.minZ - myB.maxZ);
+                                        }
+                                        if (d3 < SNAP && d3 < minSnapDist) {
+                                            minSnapDist = d3; bestSnapOffset = (ob.minZ - myB.minZ);
+                                        }
+                                        if (d4 < SNAP && d4 < minSnapDist) {
+                                            minSnapDist = d4; bestSnapOffset = (ob.maxZ - myB.maxZ);
+                                        }
+                                    }
+                                } else if (axis === 'y') {
+                                    const horizontallyRelevant = (xOverlap || Math.abs(myB.minX - ob.maxX) < SNAP || Math.abs(myB.maxX - ob.minX) < SNAP) &&
+                                        (zOverlap || Math.abs(myB.minZ - ob.maxZ) < SNAP || Math.abs(myB.maxZ - ob.minZ) < SNAP);
+
+                                    if (horizontallyRelevant) {
+                                        const dBottom = Math.abs(testPos.y - other.position[1]);
+                                        const dTop = Math.abs((testPos.y + h1) - (other.position[1] + h2));
+                                        const dTop2Bottom = Math.abs((testPos.y + h1) - other.position[1]);
+                                        const dBottom2Top = Math.abs(testPos.y - (other.position[1] + h2));
+
+                                        if (dBottom < SNAP && dBottom < minSnapDist) {
+                                            minSnapDist = dBottom; bestSnapOffset = other.position[1] - testPos.y;
+                                        }
+                                        if (dTop < SNAP && dTop < minSnapDist) {
+                                            minSnapDist = dTop; bestSnapOffset = (other.position[1] + h2) - (testPos.y + h1);
+                                        }
+                                        if (dTop2Bottom < SNAP && dTop2Bottom < minSnapDist) {
+                                            minSnapDist = dTop2Bottom; bestSnapOffset = other.position[1] - (testPos.y + h1);
+                                        }
+                                        if (dBottom2Top < SNAP && dBottom2Top < minSnapDist) {
+                                            minSnapDist = dBottom2Top; bestSnapOffset = (other.position[1] + h2) - testPos.y;
+                                        }
+                                    }
                                 }
                             });
                         });
                     });
+
+                    let finalVal = currentVal;
+                    if (minSnapDist < SNAP) {
+                        finalVal = currentVal + bestSnapOffset;
+                    } else if (wallSnapOffset !== 0) {
+                        finalVal = currentVal + wallSnapOffset;
+                    }
 
                     // Room Constraints (Hard limit) using FULL bounds
                     testPos[axis] = finalVal;
@@ -264,8 +319,9 @@ export default function DraggableCabinet({
                     testPos[axis] = finalVal;
                     let collision = false;
                     for (const other of otherCabinets) {
-                        const h2 = other.cabinet.id.startsWith('gorna-') ? other.cabinet.height : (other.cabinet.height + LEG_H);
-                        const otherYOverlap = !(testPos.y + h1 < other.position[1] || other.position[1] + h2 < testPos.y);
+                        const isOtherFloating = other.cabinet.id.startsWith('gorna-') || other.cabinet.id.startsWith('blat-') || other.cabinet.id === 'fartuch-kuchenny' || other.cabinet.id === 'blenda-meblowa';
+                        const h2 = isOtherFloating ? other.cabinet.height : (other.cabinet.height + LEG_H);
+                        const otherYOverlap = !(testPos.y + h1 <= other.position[1] || other.position[1] + h2 <= testPos.y);
                         if (checkGlobalCollision(testPos, rotY, cabinet, new THREE.Vector3(...other.position), other.rotation[1], other.cabinet, otherYOverlap)) {
                             collision = true;
                             break;
@@ -281,12 +337,60 @@ export default function DraggableCabinet({
                 const finalZ = tryAxis('z', requestedPos.z, oldPos.z);
                 target.position.z = finalZ;
 
+                const isListwa = cabinet.id.toLowerCase().includes('listwa');
+
+                // Snap Y position to 18mm increments for strips (board thickness)
+                if (isListwa) {
+                    target.position.y = Math.round(target.position.y / 18) * 18;
+                }
+
+                // SPECIAL FEATURE: Automatycznie dobijaj szafki górne płytkie do dolnej krawędzi szafek górnych głębokich LUB do listwy
+                // Wyłączamy automatyczne dobijanie dla listew między-szafkowych, aby umożliwić ich ręczne/programowe pozycjonowanie w pionie
+                if (cabinet.id.startsWith('gorna-') && cabinet.depth <= 350 && !isListwa) {
+                    const myRects = getCollisionRects(cabinet, true);
+                    for (const other of otherCabinets) {
+                        // Szukamy szafek głębokich (standardowo 560mm) lub listew
+                        const isDeepUpper = other.cabinet.id.startsWith('gorna-') && other.cabinet.depth >= 500;
+                        const isSharedStrip = other.cabinet.id.includes('listwa');
+
+                        if (isDeepUpper || isSharedStrip) {
+                            const otherRects = getCollisionRects(other.cabinet, true);
+                            let xzOverlap = false;
+
+                            // Docelowy punkt Y: jeśli listwa, to jej spód. Jeśli szafka głęboka, to 18mm pod jej spodem (miejsce na listwę)
+                            const snapTargetY = isSharedStrip ? other.position[1] : (other.position[1] - 18);
+
+                            for (const mr of myRects) {
+                                const mB = getRectWorldBounds(target.position, target.rotation.y, mr);
+                                for (const or of otherRects) {
+                                    const oB = getRectWorldBounds(new THREE.Vector3(...other.position), other.rotation[1], or);
+                                    const overlapX = Math.max(0, Math.min(mB.maxX, oB.maxX) - Math.max(mB.minX, oB.minX));
+                                    const overlapZ = Math.max(0, Math.min(mB.maxZ, oB.maxZ) - Math.max(mB.minZ, oB.minZ));
+
+                                    // Sprawdzamy dystans pionowy - ma dociągać tylko z odległości 100mm
+                                    const verticalDist = Math.abs((target.position.y + h1) - snapTargetY);
+
+                                    if (overlapX >= 50 && overlapZ >= 50 && verticalDist <= 100) {
+                                        xzOverlap = true; break;
+                                    }
+                                }
+                                if (xzOverlap) break;
+                            }
+                            if (xzOverlap) {
+                                // Dobij precyzyjnie top szafki płytkiej do wybranego poziomu
+                                target.position.y = snapTargetY - h1;
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 const newPos: [number, number, number] = [target.position.x, target.position.y, target.position.z];
                 setLastValidPos(newPos);
                 onUpdate(uuid, newPos, [target.rotation.x, target.rotation.y, target.rotation.z]);
             };
 
-            const onDraggingChanged = (event: { value: boolean }) => {};
+            const onDraggingChanged = (event: { value: boolean }) => { };
             controls.addEventListener('dragging-changed', onDraggingChanged);
             controls.addEventListener('change', changeCallback);
             controls.enabled = !isLocked && !isPreviewMode && !isTechnicalView;
@@ -297,18 +401,21 @@ export default function DraggableCabinet({
         }
     }, [onUpdate, uuid, roomDimensions, cabinet, target, otherCabinets, lastValidPos, isLocked, isPreviewMode, isTechnicalView]);
 
-    const LEG_H = 60;
-    const yOriginOffset = cabinet.id.startsWith('gorna-') ? cabinet.height / 2 : (cabinet.height + LEG_H) / 2;
+    const LEG_H = 100;
+    const isFloating = cabinet.id.startsWith('gorna-') || cabinet.id.startsWith('blat-') || cabinet.id === 'fartuch-kuchenny' || cabinet.id === 'blenda-meblowa';
+    const isListwa = cabinet.id.toLowerCase().includes('listwa');
+    const yOriginOffset = isFloating ? cabinet.height / 2 : (cabinet.height + LEG_H) / 2;
+    const h1 = isFloating ? cabinet.height : (cabinet.height + LEG_H);
 
     return (
         <group>
-            {isSelected && target && !isPreviewMode && !isTechnicalView ? (
+            {isSelected && target && !isPreviewMode && !isTechnicalView && !isLocked ? (
                 <TransformControls
                     ref={transformRef}
                     object={target}
                     mode="translate"
-                    translationSnap={0.1}
-                    showY={cabinet.id.startsWith('gorna-')}
+                    translationSnap={isListwa ? 18 : 0.1}
+                    showY={cabinet.id.startsWith('gorna-') || cabinet.id.startsWith('blat-') || cabinet.id === 'fartuch-kuchenny' || cabinet.id === 'blenda-meblowa'}
                     size={1.2}
                 />
             ) : null}
@@ -334,12 +441,50 @@ export default function DraggableCabinet({
             >
                 {isSelected && !isPreviewMode && !isTechnicalView && (
                     <group position={[0, yOriginOffset, 0]}>
-                        {getCollisionRects(cabinet).map((rect, i) => (
-                            <mesh key={i} position={[rect.x, 0, rect.z]}>
-                                <boxGeometry args={[rect.w, cabinet.height, rect.d]} />
-                                <meshBasicMaterial color={isLocked ? "#ff0000" : "#00ff00"} wireframe transparent opacity={0.3} />
-                            </mesh>
-                        ))}
+                        {isListwa ? (
+                            (() => {
+                                const w = cabinet.width;
+                                const d = cabinet.depth;
+                                const left = (cabinet as any).leftCutType || 'none';
+                                const right = (cabinet as any).rightCutType || 'none';
+
+                                const shape = new THREE.Shape();
+                                if (left === 'angle-45-left') {
+                                    shape.moveTo(-w / 2 + d, -d / 2);
+                                } else {
+                                    shape.moveTo(-w / 2, -d / 2);
+                                }
+
+                                if (right === 'angle-45-right') {
+                                    shape.lineTo(w / 2 - d, -d / 2);
+                                } else {
+                                    shape.lineTo(w / 2, -d / 2);
+                                }
+
+                                shape.lineTo(w / 2, d / 2);
+                                shape.lineTo(-w / 2, d / 2);
+
+                                if (left === 'angle-45-left') {
+                                    shape.lineTo(-w / 2 + d, -d / 2);
+                                } else {
+                                    shape.lineTo(-w / 2, -d / 2);
+                                }
+
+                                return (
+                                    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -cabinet.height / 2, 0]}>
+                                        <extrudeGeometry args={[shape, { depth: cabinet.height, bevelEnabled: false }]} />
+                                        <meshBasicMaterial color={isLocked ? "#ff0000" : "#00ff00"} wireframe transparent opacity={0.3} />
+                                    </mesh>
+                                );
+                            })()
+                        ) : (
+                            getCollisionRects(cabinet).map((rect, i) => (
+                                <mesh key={i} position={[rect.x, 0, rect.z]}>
+                                    <boxGeometry args={[rect.w, h1, rect.d]} />
+                                    <meshBasicMaterial color={isLocked ? "#ff0000" : "#00ff00"} wireframe transparent opacity={0.3} />
+                                </mesh>
+                            ))
+                        )}
                     </group>
                 )}
                 <group position={[0, yOriginOffset, 0]}>
@@ -362,6 +507,8 @@ export default function DraggableCabinet({
                         hasDoors={(cabinet as any).hasFronts}
                         elements={(cabinet as any).elements}
                         width2={(cabinet as any).width2}
+                        leftCutType={(cabinet as any).leftCutType}
+                        rightCutType={(cabinet as any).rightCutType}
                         isStaticPreview={true}
                         renderAsGroup={true}
                     />
