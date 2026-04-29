@@ -7,7 +7,7 @@ import { getCollisionRects } from "@/lib/calculate";
 interface TechnicalDrawingProps {
     placedCabinets: PlacedCabinet[];
     roomDimensions: { width: number; depth: number; height: number };
-    filter?: 'lower' | 'upper-shallow' | 'upper-deep';
+    filter?: 'lower' | 'upper-shallow' | 'upper-deep' | 'all';
 }
 
 export default function TechnicalDrawing({ placedCabinets, roomDimensions, filter = 'all' }: TechnicalDrawingProps) {

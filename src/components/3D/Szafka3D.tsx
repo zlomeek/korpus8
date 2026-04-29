@@ -2285,7 +2285,6 @@ export default function Szafka3D({
                                     let xStart = (cutoutSide === 'left') ? -rimWidth / 2 + cutoutOffset : rimWidth / 2 - cutoutOffset - cutoutW;
                                     const pipeCenterX = (xStart + xStart + cutoutW) / 2;
 
-                                    if (type !== 'gorna-okapowa' && !type?.includes('okapowa')) return null;
 
                                     return absoluteSegments.map((segment, i) => {
                                         // Pomijamy segment jeśli nie jest jawnie włączony

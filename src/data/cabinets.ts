@@ -42,6 +42,14 @@ export interface Cabinet {
   depthRogowa?: boolean;
   bodyDecorId?: string;
   frontDecorId?: string;
+  hoodCutoutSide?: 'left' | 'right';
+  hoodCutoutWidth?: number;
+  hoodCutoutOffset?: number;
+  hoodCutoutDepth?: number;
+  hoodHoleSide?: 'left' | 'right';
+  hoodHoleOffset?: number;
+  hasHoodHoleTop?: boolean;
+  pipeSegmentsEnabled?: boolean[];
 }
 
 export const cabinetTemplates: Cabinet[] = [

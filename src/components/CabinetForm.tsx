@@ -2605,7 +2605,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                                     <tr key={el.id} style={{ borderBottom: '1px solid #eee' }}>
                                                         <td style={{ padding: '0.5rem' }}>{el.name}</td>
                                                         <td style={{ padding: '0.5rem', textAlign: 'right', color: '#666' }}>
-                                                            {dimensions} mm
+                                                            {(el.width || 0) || (el.height || 0)} x {(el.depth || 0) || (el.width || 0)} mm
                                                         </td>
                                                     </tr>
                                                 );
@@ -2625,7 +2625,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                                         <tr key={el.id} style={{ borderBottom: '1px solid #dbeafe', backgroundColor: '#f0f7ff' }}>
                                                             <td style={{ padding: '0.5rem' }}>{el.name}</td>
                                                             <td style={{ padding: '0.5rem', textAlign: 'right', color: '#1d4ed8', fontWeight: 'bold' }}>
-                                                                {el.height - 1} x {el.width} mm
+                                                                {(el.height || 0) - 1} x {el.width || 0} mm
                                                             </td>
                                                         </tr>
                                                     ))}
@@ -2644,7 +2644,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                                     <tr key={el.id} style={{ borderBottom: '1px solid #eee', backgroundColor: '#fcfcfc' }}>
                                                         <td style={{ padding: '0.5rem' }}>{el.name}</td>
                                                         <td style={{ padding: '0.5rem', textAlign: 'right', color: '#0066cc', fontWeight: 'bold' }}>
-                                                            {el.width} x {el.height} mm
+                                                            {el.width || 0} x {el.height || 0} mm
                                                         </td>
                                                     </tr>
                                                 ))}

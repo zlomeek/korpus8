@@ -882,7 +882,7 @@ export interface CollisionRect {
     d: number;
     x: number; // local center X
     z: number; // local center Z
-    type?: 'body' | 'extension';
+    type?: 'body' | 'extension' | 'blenda' | 'spacer' | 'front';
 }
 
 export function getCollisionRects(cabinet: Cabinet, excludeFronts: boolean = false): CollisionRect[] {
