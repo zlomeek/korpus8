@@ -2,19 +2,29 @@
 
 import React from "react";
 import { PlacedCabinet } from "./RoomPlanner";
+import { getCollisionRects } from "@/lib/calculate";
 
 interface TechnicalDrawingProps {
     placedCabinets: PlacedCabinet[];
     roomDimensions: { width: number; depth: number; height: number };
-    filter?: 'all' | 'lower' | 'upper';
+    filter?: 'lower' | 'upper-shallow' | 'upper-deep';
 }
 
 export default function TechnicalDrawing({ placedCabinets, roomDimensions, filter = 'all' }: TechnicalDrawingProps) {
     const filteredCabinets = placedCabinets.filter(c => {
-        if (filter === 'all') return true;
-        const isGorna = c.cabinet.id.includes('gorna');
-        if (filter === 'lower') return !isGorna;
-        if (filter === 'upper') return isGorna;
+        const id = c.cabinet.id;
+        const isTall = (id.includes('lodowka') || id.includes('piekarnik')) && id !== 'dolna-piekarnik-podblatowa';
+        const isLowerCabinet = id.startsWith('dolna-') && !isTall;
+        const isUpper = id.startsWith('gorna-');
+        const isBlenda = id.startsWith('blenda-');
+        const isBlat = id.startsWith('blat-');
+        const isFartuch = id === 'fartuch-kuchenny';
+        const isListwa = id.includes('listwa');
+        const depth = c.cabinet.depth;
+
+        if (filter === 'lower') return (isLowerCabinet || isTall) && !isBlenda && !isListwa;
+        if (filter === 'upper-shallow') return (isUpper && depth < 450 || isTall) && !isBlenda && !isListwa;
+        if (filter === 'upper-deep') return (isUpper && depth >= 450 || isTall) && !isBlenda && !isListwa;
         return true;
     });
 
@@ -81,7 +91,10 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions, filte
         >
             {/* Legend / Title */}
             <text x={padding} y={padding / 2 - 50} fontSize="72" fontWeight="bold" fill="#333">
-                RZUT KUCHNI - WIDOK TECHNICZNY ({filter === 'all' ? 'Wszystko' : (filter === 'lower' ? 'Dół' : 'Góra')})
+                RZUT KUCHNI - WIDOK TECHNICZNY ({
+                    filter === 'lower' ? 'Dół + Słupki' : 
+                    (filter === 'upper-shallow' ? 'Góra płytka + Słupki' : 'Góra głęboka + Słupki')
+                })
             </text>
 
             {/* Room Boundary */}
@@ -110,18 +123,26 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions, filte
                 const w2 = (cab as any).cabinet.width2 || (cab.cabinet.id.startsWith('gorna-') ? 650 : 900);
 
                 const renderCabinetShape = () => {
-                    if (isLCorner) {
-                        // L-shape polygon points (local)
-                        const W = cabW;
-                        const W2 = w2;
-                        const D = cabD;
+                    const isL = cab.cabinet.id.endsWith('-90');
+                    if (isL) {
+                        const w1 = cab.cabinet.width;
+                        const w2 = (cab.cabinet as any).width2 || (cab.cabinet.id.startsWith('gorna-') ? 650 : 900);
+                        const d = cab.cabinet.depth;
+
+                        // Local points for L-shape
+                        // A: Back-Left outer corner (-w1/2, -w2/2)
+                        // B: Back-Right outer corner (w1/2, -w2/2)
+                        // C: Back-Right inner edge (w1/2, -w2/2 + d)
+                        // D: Inside corner (-w1/2 + d, -w2/2 + d)
+                        // E: Front-Left inner edge (-w1/2 + d, w2/2)
+                        // F: Front-Left outer corner (-w1/2, w2/2)
                         const points = [
-                            `${-W/2},${-W2/2}`,
-                            `${W/2},${-W2/2}`,
-                            `${W/2},${-W2/2 + D}`,
-                            `${-W/2 + D},${-W2/2 + D}`,
-                            `${-W/2 + D},${W2/2}`,
-                            `${-W/2},${W2/2}`
+                            `${-w1 / 2},${-w2 / 2}`,
+                            `${w1 / 2},${-w2 / 2}`,
+                            `${w1 / 2},${-w2 / 2 + d}`,
+                            `${-w1 / 2 + d},${-w2 / 2 + d}`,
+                            `${-w1 / 2 + d},${w2 / 2}`,
+                            `${-w1 / 2},${w2 / 2}`
                         ].join(" ");
 
                         return (
@@ -135,18 +156,40 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions, filte
                         );
                     }
 
-                    return (
-                        <rect
-                            x={-cabW / 2}
-                            y={-cabD / 2}
-                            width={cabW}
-                            height={cabD}
-                            fill={isGorna ? "#f0f9ff" : "#f1f5f9"}
-                            stroke="#000"
-                            strokeWidth="6"
-                            transform={`translate(${mapX(cab.position[0])}, ${mapY(cab.position[2])}) rotate(${(rotation * 180) / Math.PI})`}
-                        />
-                    );
+                    const rects = getCollisionRects(cab.cabinet);
+                    const isUpperCorner = cab.cabinet.id === 'gorna-narozna' || cab.cabinet.id === 'gorna-narozna-gleboka';
+                    
+                    return rects.map((rect, idx) => {
+                        // Ukrywamy ślepe blendy w narożnikach DOLNYCH (na prośbę użytkownika wcześniej), 
+                        // ale w GÓRNYCH je pokazujemy (na nową prośbę użytkownika)
+                        if (rect.type === 'blenda' && !isGorna) return null;
+                        
+                        // Ukrywamy front w szafkach górnych narożnych (użytkownik chce tam widzieć tylko blendę)
+                        if (rect.type === 'front' && isUpperCorner) return null;
+
+                        const localX = rect.x;
+                        const localZ = rect.z;
+                        const w = rect.w;
+                        const d = rect.d;
+
+                        const isSpacer = rect.type === 'spacer';
+                        const isExtension = rect.type === 'extension' || rect.type === 'blenda' || rect.type === 'front';
+
+                        return (
+                            <rect
+                                key={`${cab.uuid}-rect-${idx}`}
+                                x={localX - w / 2}
+                                y={localZ - d / 2}
+                                width={w}
+                                height={d}
+                                fill={isGorna ? (isSpacer ? "#cbd5e1" : "#f0f9ff") : (isSpacer ? "#cbd5e1" : "#f1f5f9")}
+                                stroke="#000"
+                                strokeWidth={isExtension ? "2" : "6"}
+                                strokeDasharray={isExtension ? "10 5" : "0"}
+                                transform={`translate(${mapX(cab.position[0])}, ${mapY(cab.position[2])}) rotate(${(rotation * 180) / Math.PI})`}
+                            />
+                        );
+                    });
                 };
 
                 return (

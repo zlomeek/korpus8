@@ -35,7 +35,20 @@ export default function CabinetCard({ cabinet, settings, onEdit }: CabinetCardPr
         720, // domyślne ovenBaseHeight
         900, // width2
         true, // hasFronts
-        "standard"
+        "Płyta laminowana 18mm", // frontMaterial
+        false, // splitCargoFront
+        150, // hoodHeight
+        'left', // hoodCutoutSide
+        Math.round((cabinet.width - 36 - Math.max(0, cabinet.width - 76)) / 2), // hoodCutoutOffset
+        Math.max(0, cabinet.width - 76), // hoodCutoutWidth
+        280, // hoodCutoutDepth
+        'left', // hoodHoleSide
+        95, // hoodHoleOffset
+        false, // hasHoodHoleTop
+        false, // hasShelfHoles
+        0, // shelfHoleCount
+        false, // extendFrontDown
+        false // depthRogowa
     );
 
     return (
@@ -68,6 +81,8 @@ export default function CabinetCard({ cabinet, settings, onEdit }: CabinetCardPr
                         configAbove={cabinet.id === 'dolna-piekarnik' ? ['Drzwi'] : []}
                         elements={defaultElements}
                         hasDoors={true}
+                        extendFrontDown={false}
+                        depthRogowa={false}
                     />
                 </div>
             </div>

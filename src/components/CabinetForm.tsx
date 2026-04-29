@@ -5,6 +5,11 @@ import { calculateCabinet, PricingSettings, generateFixedElements } from "@/lib/
 import React, { useState, useEffect } from "react";
 import styles from "./CabinetForm.module.css";
 import dynamic from 'next/dynamic';
+import { decors, Decor } from "@/data/decors";
+import DecorSelector from "./DecorSelector";
+
+const THICKNESS = 18;
+
 
 // Dynamically import Szafka3D to avoid SSR issues with R3F
 const Szafka3D = dynamic(() => import("./3D/Szafka3D"), { ssr: false });
@@ -21,10 +26,6 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
     const allowFullTopOption = ['dolna-standard', 'dolna-narozna'].includes(cabinet.id);
     const forceFullTop = !allowFullTopOption && cabinet.id !== 'dolna-zlew'; // Force full top for Upper/Fridge, but NOT for Sink (which has vertical rims)
 
-    // Initialize with fixed elements based on dimensions
-    // We need to manage isFullTop state. We can add it to formData or a separate state.
-    // Let's add it to formData by casting or extending.
-
     const [formData, setFormData] = useState<Cabinet & {
         isFullTop?: boolean;
         bodyColor?: string;
@@ -35,11 +36,24 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         ovenSpaceHeight?: number;
         microwaveSpaceHeight?: number;
         ovenBaseHeight?: number;
+        hoodHeight?: number;
         configUnder?: string[];
         configAbove?: string[];
         hasFronts?: boolean;
         frontMaterial?: string;
         splitCargoFront?: boolean;
+        hoodCutoutSide?: 'left' | 'right';
+        hoodCutoutOffset?: number;
+        hoodCutoutWidth?: number;
+        hoodCutoutDepth?: number;
+        hoodHoleSide?: 'left' | 'right';
+        hoodHoleOffset?: number;
+        hasHoodHoleTop?: boolean;
+        hasShelfHoles?: boolean;
+        shelfHoleCount?: number;
+        extendFrontDown?: boolean;
+        depthRogowa?: boolean;
+        pipeSegmentsEnabled?: boolean[];
     }>(() => {
         const isFullTop = cabinet.isFullTop !== undefined ? cabinet.isFullTop : forceFullTop;
         const cornerOrientation = cabinet.cornerOrientation || 'right';
@@ -48,14 +62,24 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         const ovenSpaceHeight = cabinet.ovenSpaceHeight || (cabinet.id === 'dolna-piekarnik' ? 590 : 600);
         const microwaveSpaceHeight = cabinet.microwaveSpaceHeight || (cabinet.id === 'dolna-piekarnik' ? 380 : undefined);
         const ovenBaseHeight = cabinet.ovenBaseHeight || (cabinet.id === 'dolna-piekarnik' ? 720 : undefined);
-        const width2Local = (cabinet.id === 'dolna-narozna-90' || cabinet.id === 'gorna-narozna-90') ? (cabinet.width2 || (cabinet.id.includes('gorna') ? 650 : 900)) : 0;
+        const hoodHeight = cabinet.hoodHeight || (cabinet.id === 'gorna-okapowa' ? 150 : undefined);
+        const hoodCutoutSide = (cabinet as any).hoodCutoutSide || 'left';
+        const hoodCutoutWidth = (cabinet as any).hoodCutoutWidth || Math.max(0, cabinet.width - 76);
+        const hoodCutoutOffset = (cabinet as any).hoodCutoutOffset !== undefined ? (cabinet as any).hoodCutoutOffset : Math.round((cabinet.width - 36 - hoodCutoutWidth) / 2);
+        const hoodCutoutDepth = (cabinet as any).hoodCutoutDepth || 272;
+        const hoodHoleSide = (cabinet as any).hoodHoleSide || 'left';
+        const hoodHoleOffset = (cabinet as any).hoodHoleOffset || 95;
+        const width2Local = (cabinet.id === "dolna-narozna-90" || cabinet.id === "gorna-narozna-90") ? (cabinet.width2 || (cabinet.id.includes("gorna") ? 650 : 900)) : 0;
         const hasFronts = cabinet.hasFronts !== undefined ? cabinet.hasFronts : false;
+        const hasHoodHoleTop = (cabinet as any).hasHoodHoleTop !== undefined ? (cabinet as any).hasHoodHoleTop : false;
+        const hasShelfHoles = (cabinet as any).hasShelfHoles || false;
+        const shelfHoleCount = (cabinet as any).shelfHoleCount || 0;
 
         return {
             ...cabinet,
             isFullTop,
             bodyColor: cabinet.bodyColor || '#fefdf5',
-            configuration: "",
+            configuration: '',
             cornerOrientation,
             frontWidth,
             isCustomWidth: cabinet.isCustomWidth || false,
@@ -63,6 +87,21 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             ovenSpaceHeight,
             microwaveSpaceHeight,
             ovenBaseHeight,
+            hoodHeight,
+            hoodCutoutSide,
+            hoodCutoutOffset,
+            hoodCutoutWidth,
+            hoodCutoutDepth,
+            hoodHoleSide,
+            hoodHoleOffset,
+            hasHoodHoleTop,
+            hasShelfHoles,
+            shelfHoleCount,
+            extendFrontDown: (cabinet as any).extendFrontDown || false,
+            depthRogowa: (cabinet as any).depthRogowa || false,
+            pipeSegmentsEnabled: (cabinet as any).pipeSegmentsEnabled || undefined,
+            bodyDecorId: (cabinet as any).bodyDecorId || 'biel-alpejska',
+            frontDecorId: (cabinet as any).frontDecorId || 'biel-alpejska',
             sinkBackRimHeight: cabinet.sinkBackRimHeight || (cabinet.id === 'dolna-zlew' ? 500 : undefined),
             configUnder: cabinet.configUnder || [],
             configAbove: cabinet.configAbove || [],
@@ -70,9 +109,12 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             splitCargoFront: false,
             frontMaterial: 'Płyta laminowana 18mm',
             width2: width2Local,
-            elements: generateFixedElements(cabinet.width, cabinet.height, cabinet.depth, isFullTop, "", cabinet.id, cornerOrientation, frontWidth, fridgeSpaceHeight, ovenSpaceHeight, cabinet.configUnder || [], cabinet.configAbove || [], microwaveSpaceHeight, ovenBaseHeight, width2Local || undefined, hasFronts, 'Płyta laminowana 18mm', false)
+            elements: generateFixedElements(cabinet.width, cabinet.height, cabinet.depth, isFullTop, '', cabinet.id, cornerOrientation, frontWidth, fridgeSpaceHeight, ovenSpaceHeight, cabinet.configUnder || [], cabinet.configAbove || [], microwaveSpaceHeight, ovenBaseHeight, width2Local || undefined, hasFronts, 'Płyta laminowana 18mm', false, (cabinet as any).hoodHeight, (cabinet as any).hoodCutoutSide, (cabinet as any).hoodCutoutOffset, (cabinet as any).hoodCutoutWidth, (cabinet as any).hoodCutoutDepth, (cabinet as any).hoodHoleSide, (cabinet as any).hoodHoleOffset, hasHoodHoleTop, hasShelfHoles, shelfHoleCount, (cabinet as any).extendFrontDown || false, (cabinet as any).depthRogowa || false)
         };
     });
+
+    const [selectorMode, setSelectorMode] = useState<'body' | 'front' | null>(null);
+
 
     const FRONT_MATERIALS = [
         { name: 'Płyta laminowana 18mm', value: 'Płyta laminowana 18mm', priceMultiplier: 1.0 },
@@ -108,11 +150,75 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
     const [calculation, setCalculation] = useState(calculateCabinet(formData, settings));
 
     useEffect(() => {
-        setCalculation(calculateCabinet(formData, settings));
-    }, [formData, settings]);
+        const newElements = generateFixedElements(
+            formData.width,
+            formData.height,
+            formData.depth,
+            formData.isFullTop || false,
+            '',
+            cabinet.id,
+            formData.cornerOrientation || 'right',
+            formData.frontWidth || 600,
+            formData.fridgeSpaceHeight || 1780,
+            formData.ovenSpaceHeight || 600,
+            formData.configUnder || [],
+            formData.configAbove || [],
+            formData.microwaveSpaceHeight,
+            formData.ovenBaseHeight,
+            formData.width2,
+            formData.hasFronts,
+            formData.frontMaterial || 'Płyta laminowana 18mm',
+            false,
+            formData.hoodHeight,
+            formData.hoodCutoutSide,
+            formData.hoodCutoutOffset,
+            formData.hoodCutoutWidth,
+            formData.hoodCutoutDepth,
+            formData.hoodHoleSide,
+            formData.hoodHoleOffset,
+            formData.hasHoodHoleTop,
+            formData.hasShelfHoles,
+            formData.shelfHoleCount,
+            formData.extendFrontDown || false,
+            formData.depthRogowa || false,
+            formData.pipeSegmentsEnabled
+        );
+
+        setFormData(prev => ({
+            ...prev,
+            elements: newElements
+        }));
+        
+        setCalculation(calculateCabinet({ ...formData, elements: newElements }, settings));
+    }, [
+        formData.width, formData.height, formData.depth, formData.isFullTop, 
+        formData.cornerOrientation, formData.frontWidth, formData.fridgeSpaceHeight,
+        formData.ovenSpaceHeight, formData.microwaveSpaceHeight, formData.ovenBaseHeight,
+        formData.configUnder, formData.configAbove, formData.width2, formData.hasFronts,
+        formData.frontMaterial, formData.hoodHeight, formData.hoodCutoutSide,
+        formData.hoodCutoutOffset, formData.hoodCutoutWidth, formData.hoodCutoutDepth,
+        formData.hoodHoleSide, formData.hoodHoleOffset, formData.hasHoodHoleTop,
+        formData.hasShelfHoles, formData.shelfHoleCount, formData.extendFrontDown,
+        formData.depthRogowa, formData.pipeSegmentsEnabled, settings
+    ]);
 
     // Helper functions for shelf calculations
+    const getShelvesCount = (config: string[] | undefined) => {
+        if (!config) return 0;
+        const shelfOpt = config.find(o => o.toLowerCase().includes('półk'));
+        if (!shelfOpt) return 0;
+        const match = shelfOpt.match(/\d+/);
+        return match ? parseInt(match[0], 10) : 0;
+    };
+
+    const selectedShelvesCount = getShelvesCount(formData.configUnder) || getShelvesCount(formData.configAbove);
+
     const getInternalHeight = () => {
+        if (cabinet.id === 'gorna-okapowa') {
+            // Dla szafki okapowej liczymy światło nad okapem
+            // Formuła: Wysokość - Wysokość okapu - 3x grubość wieńca (dolny, środkowy, górny = 54mm)
+            return (formData.height || 700) - (formData.hoodHeight || 150) - 54;
+        }
         // Obliczamy światło szafki. Podstawa to wysokość - 2x grubość wieńca (2 * 18 = 36)
         return (formData.height || 720) - 36;
     };
@@ -131,11 +237,24 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
     };
 
     // Filter available configuration options based on width
-    const getFilteredOptions = (width: number) => {
+    const getFilteredOptions = (width: number, hCutoutWidth?: number, hCutoutOffset?: number) => {
         if (!cabinet.configurationOptions) return [];
 
         return cabinet.configurationOptions.filter(opt => {
             const lowerOpt = opt.toLowerCase();
+
+            // New rules for shortened hood blenda
+            if (lowerOpt.includes('blenda okapu skrócona')) {
+                const cWidth = hCutoutWidth !== undefined ? hCutoutWidth : (formData.hoodCutoutWidth || Math.max(0, width - 76));
+                const cOffset = hCutoutOffset !== undefined ? hCutoutOffset : (formData.hoodCutoutOffset !== undefined ? formData.hoodCutoutOffset : Math.round((width - 36 - cWidth) / 2));
+                
+                const innerWidth = width - 36;
+                const leftDist = cOffset;
+                const rightDist = innerWidth - cOffset - cWidth;
+
+                if (lowerOpt.includes('z lewej')) return leftDist >= 54;
+                if (lowerOpt.includes('z prawej')) return rightDist >= 54;
+            }
 
             // Rule 1: Cargo - removed for > 600
             if (lowerOpt.includes('cargo') && width > 600) return false;
@@ -161,14 +280,15 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         });
     };
 
-    const filteredOptions = getFilteredOptions(formData.width);
+    const filteredOptions = getFilteredOptions(formData.width, formData.hoodCutoutWidth, formData.hoodCutoutOffset);
 
+    // Master dimension change handler
     // Master dimension change handler
     const handleWidth2Change = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
         const val = Number(e.target.value);
         setFormData(prev => {
             const updated = { ...prev, width2: val };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, val, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, val, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             
             return updated;
         });
@@ -180,16 +300,38 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
 
             // Check if configuration is still valid, if not reset
             if (field === 'width') {
-                const validOptions = getFilteredOptions(value);
+                if (cabinet.id === 'gorna-okapowa') {
+                    updated.hoodCutoutWidth = Math.max(0, value - 76);
+                    updated.hoodCutoutOffset = Math.round((value - 36 - updated.hoodCutoutWidth) / 2);
+                    updated.hoodCutoutDepth = updated.depth - 58;
+                }
+                const validOptions = getFilteredOptions(value, updated.hoodCutoutWidth, updated.hoodCutoutOffset);
                 if (updated.configuration && !validOptions.includes(updated.configuration)) {
                     // Reset to first valid option or empty
                     updated.configuration = validOptions.length > 0 ? validOptions[0] : "";
                 }
+                // Also clean up configUnder for upper cabinets
+                if (updated.configUnder) {
+                    updated.configUnder = updated.configUnder.filter(opt => {
+                        if (cabinet.configurationOptions?.includes(opt)) {
+                            return validOptions.includes(opt);
+                        }
+                        return true;
+                    });
+                }
+            }
+
+            // Przy zmianie wysokości szafki okapowej: wyczyść opcje półek
+            if (field === 'height' && cabinet.id === 'gorna-okapowa') {
+                const shelfLabels = ['1 półka', '2 półki', '3 półki', '4 półki', '5 półek'];
+                updated.configUnder = (updated.configUnder || []).filter(opt => !shelfLabels.includes(opt));
+                updated.hasShelfHoles = false;
+                updated.shelfHoleCount = 0;
             }
 
             // Regenerate all elements based on new dimensions
             let currentWidth2 = prev.width2 || 0;
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, currentWidth2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, currentWidth2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
@@ -207,6 +349,11 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             if (value !== prev[field]) {
                 const updated = { ...prev, [field]: value };
 
+                if (field === 'width' && cabinet.id === 'gorna-okapowa') {
+                    updated.hoodCutoutWidth = Math.max(0, value - 76);
+                    updated.hoodCutoutOffset = Math.round((value - 36 - updated.hoodCutoutWidth) / 2);
+                }
+
                 // If height changed, re-evaluate shelves
                 if (field === 'height' && updated.configUnder) {
                     const internal = value - 36;
@@ -220,7 +367,31 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                     updated.configUnder = validConfig;
                 }
 
-                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+                // Przy zmianie wysokości szafki okapowej: wyczyść opcje półek
+                if (field === 'height' && cabinet.id === 'gorna-okapowa') {
+                    const shelfLabels = ['1 półka', '2 półki', '3 półki', '4 półki', '5 półek'];
+                    updated.configUnder = (updated.configUnder || []).filter(opt => !shelfLabels.includes(opt));
+                    updated.hasShelfHoles = false;
+                    updated.shelfHoleCount = 0;
+                }
+
+                if (field === 'width') {
+                    const validOptions = getFilteredOptions(value, updated.hoodCutoutWidth, updated.hoodCutoutOffset);
+                    if (updated.configuration && !validOptions.includes(updated.configuration)) {
+                        updated.configuration = validOptions.length > 0 ? validOptions[0] : "";
+                    }
+                    if (updated.configUnder) {
+                        updated.configUnder = updated.configUnder.filter(opt => {
+                            if (cabinet.configurationOptions?.includes(opt)) {
+                                return validOptions.includes(opt);
+                            }
+                            return true;
+                        });
+                    }
+                    updated.hoodCutoutDepth = updated.depth - 58;
+                }
+
+                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
                 return updated;
             }
             return prev;
@@ -228,10 +399,10 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
     };
 
     const handleFullTopChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const isFullTop = e.target.checked;
+        const isFullTop = !!e.target.checked;
         setFormData(prev => {
             const updated = { ...prev, isFullTop };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
@@ -240,7 +411,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         const configuration = e.target.value;
         setFormData(prev => {
             const updated = { ...prev, configuration };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
@@ -249,7 +420,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         const cornerOrientation = e.target.value as 'left' | 'right';
         setFormData(prev => {
             const updated = { ...prev, cornerOrientation };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
@@ -258,7 +429,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         const frontWidth = Number(e.target.value);
         setFormData(prev => {
             const updated = { ...prev, frontWidth };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
@@ -267,7 +438,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         const ovenBaseHeight = Number(e.target.value);
         setFormData(prev => {
             const updated = { ...prev, ovenBaseHeight };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
@@ -276,7 +447,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         const fridgeSpaceHeight = Number(e.target.value);
         setFormData(prev => {
             const updated = { ...prev, fridgeSpaceHeight };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
@@ -286,7 +457,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         const ovenSpaceHeight = Number(e.target.value);
         setFormData(prev => {
             const updated = { ...prev, ovenSpaceHeight };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
@@ -295,13 +466,13 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         const microwaveSpaceHeight = Number(e.target.value);
         setFormData(prev => {
             const updated = { ...prev, microwaveSpaceHeight };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
 
     const handleCustomWidthToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = e.target.checked;
+        const checked = !!e.target.checked;
         setFormData(prev => {
             const updated = { ...prev, isCustomWidth: checked };
             // If turning off custom width, ensure we snap to nearest standard width
@@ -310,7 +481,24 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                    updated.width = cabinet.standardWidths.reduce((p, c) => Math.abs(c - updated.width) < Math.abs(p - updated.width) ? c : p);
                 }
             }
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            if (cabinet.id === 'gorna-okapowa') {
+                updated.hoodCutoutWidth = Math.max(0, updated.width - 76);
+                updated.hoodCutoutOffset = Math.round((updated.width - 36 - updated.hoodCutoutWidth) / 2);
+            }
+            const validOptions = getFilteredOptions(updated.width, updated.hoodCutoutWidth, updated.hoodCutoutOffset);
+            if (updated.configuration && !validOptions.includes(updated.configuration)) {
+                updated.configuration = validOptions.length > 0 ? validOptions[0] : "";
+            }
+            if (updated.configUnder) {
+                updated.configUnder = updated.configUnder.filter(opt => {
+                    if (cabinet.configurationOptions?.includes(opt)) {
+                        return validOptions.includes(opt);
+                    }
+                    return true;
+                });
+            }
+            updated.hoodCutoutDepth = updated.depth - 58;
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
@@ -322,6 +510,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             // elements don't need regeneration since dimensions of this element don't change
         });
     };
+
 
     const handleConfigUnderChange = (option: string, checked: boolean) => {
         setFormData(prev => {
@@ -405,7 +594,17 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             }
 
             const updated = { ...prev, configUnder: newConfig };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, newConfig, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            
+            // Walidacja otworów w półkach przy zmianie liczby półek
+            const newShelvesCount = getShelvesCount(newConfig);
+            if ((updated.shelfHoleCount || 0) > newShelvesCount) {
+                updated.shelfHoleCount = newShelvesCount;
+            }
+            if (newShelvesCount === 0) {
+                updated.hasShelfHoles = false;
+            }
+
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, newConfig, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
@@ -461,7 +660,17 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             }
 
             const updated = { ...prev, configAbove: newConfig };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, newConfig, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+            
+            // Walidacja otworów w półkach przy zmianie liczby półek
+            const newShelvesCount = getShelvesCount(newConfig);
+            if ((updated.shelfHoleCount || 0) > newShelvesCount) {
+                updated.shelfHoleCount = newShelvesCount;
+            }
+            if (newShelvesCount === 0) {
+                updated.hasShelfHoles = false;
+            }
+
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, newConfig, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
@@ -471,19 +680,42 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
     };
 
     const handleFormFrontsToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = e.target.checked;
+        const checked = !!e.target.checked;
         setFormData(prev => {
             const updated = { ...prev, hasFronts: checked };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, checked, updated.frontMaterial, updated.splitCargoFront);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, checked, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
 
     const handleSplitCargoFrontToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = e.target.checked;
+        const checked = !!e.target.checked;
         setFormData(prev => {
             const updated = { ...prev, splitCargoFront: checked };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, checked);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, checked, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+            return updated;
+        });
+    };
+
+    const handleExtendFrontDownChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = !!e.target.checked;
+        setFormData(prev => {
+            const updated = { ...prev, extendFrontDown: checked };
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, checked, updated.depthRogowa);
+            return updated;
+        });
+    };
+
+    const handleDepthRogowaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = !!e.target.checked;
+        setFormData(prev => {
+            const updated = { ...prev, depthRogowa: checked };
+            if (checked) {
+                updated.depth = 540;
+            } else {
+                updated.depth = 560; // Domyślna głębokość dla szafek dolnych
+            }
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, checked);
             return updated;
         });
     };
@@ -492,7 +724,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         const material = e.target.value;
         setFormData(prev => {
             const updated = { ...prev, frontMaterial: material };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, material, updated.splitCargoFront);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, material, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
             return updated;
         });
     };
@@ -618,13 +850,13 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
     const blockActuatorsFridge = cabinet.id.startsWith('dolna-lodowka') && fridgeTopFrontH > 600;
 
     const isTallCabinet = cabinet.id.includes('lodowka') || cabinet.id.includes('piekarnik');
-    const allowCustomWidth = !cabinet.id.includes('narozna') && !isTallCabinet;
+    const allowCustomWidth = !cabinet.id.includes('narozna') && !isTallCabinet && cabinet.id !== 'dolna-rogowa';
 
     // --- Constraints for Upper Cabinets ---
     const isUpperCabinet = cabinet.id.startsWith('gorna-');
     const blockActuatorsUpper = isUpperCabinet && formData.height > 600;
 
-    const blockHingesForDoubleDoors = formData.width > 600 && !cabinet.id.includes('narozna');
+    const blockHingesForDoubleDoors = formData.width > 600 && !cabinet.id.includes('narozna') && cabinet.id !== 'dolna-rogowa';
     const isNarrowStandard = cabinet.id === 'dolna-standard' && formData.width <= 200;
 
     useEffect(() => {
@@ -639,7 +871,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                         updatedConfigUnder.push('Drzwi');
                     }
                     const updated = { ...prev, configUnder: updatedConfigUnder };
-                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updatedConfigUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updatedConfigUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
                     return updated;
                 });
             }
@@ -652,7 +884,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             setFormData(prev => {
                 const updatedConfigAbove = prev.configAbove?.filter(o => o !== '2 półki') || [];
                 const updated = { ...prev, configAbove: updatedConfigAbove };
-                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updatedConfigAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updatedConfigAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
                 return updated;
             });
         }
@@ -664,7 +896,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             setFormData(prev => {
                 const updatedConfigAbove = prev.configAbove?.filter(o => !o.toLowerCase().includes('2 półki')) || [];
                 const updated = { ...prev, configAbove: updatedConfigAbove };
-                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updatedConfigAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updatedConfigAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
                 return updated;
             });
         }
@@ -682,7 +914,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                     }
                 }
                 const updated = { ...prev, configAbove: updatedConfigAbove };
-                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updatedConfigAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updatedConfigAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
                 return updated;
             });
         }
@@ -700,7 +932,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                     }
                 }
                 const updated = { ...prev, configAbove: updatedConfigAbove };
-                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updatedConfigAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updatedConfigAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
                 return updated;
             });
         }
@@ -716,7 +948,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                 setFormData(prev => {
                     const updatedConfigUnder = prev.configUnder?.filter(o => o !== 'Mocowania zawiasów z lewej' && o !== 'Mocowania zawiasów z prawej') || [];
                     const updated = { ...prev, configUnder: updatedConfigUnder };
-                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updatedConfigUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront);
+                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updatedConfigUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
                     return updated;
                 });
             }
@@ -741,6 +973,8 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                             depth={formData.depth}
                             isFullTop={formData.isFullTop}
                             bodyColor={formData.bodyColor}
+                            bodyDecorId={formData.bodyDecorId}
+                            frontDecorId={formData.frontDecorId}
                             type={cabinet.id}
                             cornerOrientation={formData.cornerOrientation}
                             frontWidth={formData.frontWidth}
@@ -754,6 +988,20 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                             width2={formData.width2}
                             elements={formData.elements}
                             hasDoors={formData.hasFronts}
+                            showEdges={true}
+                            hoodHeight={formData.hoodHeight}
+                            hoodCutoutSide={formData.hoodCutoutSide}
+                            hoodCutoutOffset={formData.hoodCutoutOffset}
+                            hoodCutoutWidth={formData.hoodCutoutWidth}
+                            hoodCutoutDepth={formData.hoodCutoutDepth}
+                            hoodHoleSide={formData.hoodHoleSide}
+                            hoodHoleOffset={formData.hoodHoleOffset}
+                            hasHoodHoleTop={formData.hasHoodHoleTop}
+                            hasShelfHoles={formData.hasShelfHoles}
+                            shelfHoleCount={formData.shelfHoleCount}
+                            depthRogowa={formData.depthRogowa}
+                            extendFrontDown={formData.extendFrontDown}
+                            pipeSegmentsEnabled={formData.pipeSegmentsEnabled}
                         />
                     </div>
 
@@ -1031,6 +1279,280 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                 </div>
                             )}
 
+                            {cabinet.id === 'gorna-okapowa' && (
+                                <>
+                                <div style={{ marginTop: '0.5rem' }}>
+                                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
+                                        Wysokość blendy przedniej (okapu) (mm)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={formData.hoodHeight || 150}
+                                        onChange={(e) => {
+                                            const val = Number(e.target.value);
+                                            setFormData(prev => {
+                                                const updated = { ...prev, hoodHeight: val };
+                                                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, val, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                return updated;
+                                            });
+                                        }}
+                                    />
+                                </div>
+
+                                {filteredOptions.length > 0 && filteredOptions.filter(opt => opt.toLowerCase().includes('blenda okapu skrócona')).map(opt => (
+                                    <div key={opt} style={{ marginTop: '0.5rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.configUnder?.includes(opt)}
+                                                onChange={(e) => handleConfigUnderChange(opt, e.target.checked)}
+                                            />
+                                            {opt}
+                                        </label>
+                                    </div>
+                                ))}
+
+                                <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                    <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', color: '#1e293b' }}>Konfiguracja wycięcia prostokątnego</h4>
+                                    <div className={styles.grid}>
+                                        <label>
+                                            Strona otworu
+                                            <select
+                                                value={formData.hoodCutoutSide || 'left'}
+                                                onChange={(e) => {
+                                                    const val = e.target.value as 'left' | 'right';
+                                                    setFormData(prev => {
+                                                        const updated = { ...prev, hoodCutoutSide: val };
+                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, val, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                        return updated;
+                                                    });
+                                                }}
+                                            >
+                                                <option value="left">Lewa</option>
+                                                <option value="right">Prawa</option>
+                                            </select>
+                                        </label>
+                                        <label>
+                                            Odsunięcie (mm)
+                                            <input
+                                                type="number"
+                                                min={20}
+                                                value={formData.hoodCutoutOffset !== undefined ? formData.hoodCutoutOffset : Math.round((formData.width - 36 - (formData.hoodCutoutWidth || Math.max(0, formData.width - 76))) / 2)}
+                                                onChange={(e) => {
+                                                    const maxOffset = formData.width - 56 - (formData.hoodCutoutWidth || 500);
+                                                    const val = Math.min(Math.max(20, Number(e.target.value)), maxOffset);
+                                                    setFormData(prev => {
+                                                        const updated = { ...prev, hoodCutoutOffset: val };
+                                                        const validOptions = getFilteredOptions(updated.width, updated.hoodCutoutWidth, val);
+                                                        if (updated.configUnder) {
+                                                            updated.configUnder = updated.configUnder.filter(opt => {
+                                                                if (cabinet.configurationOptions?.includes(opt)) {
+                                                                    return validOptions.includes(opt);
+                                                                }
+                                                                return true;
+                                                            });
+                                                        }
+                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, val, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                        return updated;
+                                                    });
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                    <div className={styles.grid} style={{ marginTop: '0.5rem' }}>
+                                        <label>
+                                            Szerokość (mm)
+                                            <input
+                                                type="number"
+                                                value={formData.hoodCutoutWidth || Math.max(0, formData.width - 76)}
+                                                onChange={(e) => {
+                                                    const maxWidth = formData.width - 56 - (formData.hoodCutoutOffset || 20);
+                                                    const val = Math.min(Number(e.target.value), maxWidth);
+                                                    setFormData(prev => {
+                                                        const updated = { ...prev, hoodCutoutWidth: val };
+                                                        const validOptions = getFilteredOptions(updated.width, val, updated.hoodCutoutOffset);
+                                                        if (updated.configUnder) {
+                                                            updated.configUnder = updated.configUnder.filter(opt => {
+                                                                if (cabinet.configurationOptions?.includes(opt)) {
+                                                                    return validOptions.includes(opt);
+                                                                }
+                                                                return true;
+                                                            });
+                                                        }
+                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, val, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                        return updated;
+                                                    });
+                                                }}
+                                            />
+                                        </label>
+                                        <label>
+                                            Głębokość (mm)
+                                            <input
+                                                type="number"
+                                                max={formData.depth - 58}
+                                                value={formData.hoodCutoutDepth || (formData.depth - 58)}
+                                                onChange={(e) => {
+                                                    const maxDepth = formData.depth - 58;
+                                                    const val = Math.min(Number(e.target.value), maxDepth);
+                                                    setFormData(prev => {
+                                                        const updated = { ...prev, hoodCutoutDepth: val };
+                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, val, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                        return updated;
+                                                    });
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                        <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b' }}>Konfiguracja otworu w górnym wieńcu</h4>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={!!formData.hasHoodHoleTop}
+                                                onChange={(e) => {
+                                                    const val = e.target.checked;
+                                                    setFormData(prev => {
+                                                        const updated = { ...prev, hasHoodHoleTop: val };
+                                                        
+                                                        // Ustaw domyślnie na środku po włączeniu
+                                                        if (val) {
+                                                            // Odsunięcie jest liczone od krawędzi wieńca, wieniec ma szerokość (width - 36)
+                                                            let centerOffset = Math.round((updated.width - 36) / 2);
+                                                            const maxOffset = updated.width - 131; // limits logic unchanged
+                                                            centerOffset = Math.min(Math.max(95, centerOffset), maxOffset);
+                                                            updated.hoodHoleOffset = centerOffset;
+                                                            updated.hoodHoleSide = 'left';
+                                                        }
+
+                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, val, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                        return updated;
+                                                    });
+                                                }}
+                                            />
+                                            Włącz otwór w górnym wieńcu
+                                        </label>
+                                    </div>
+                                    <div className={styles.grid} style={{ opacity: formData.hasHoodHoleTop ? 1 : 0.5, pointerEvents: formData.hasHoodHoleTop ? 'auto' : 'none' }}>
+                                        <label>
+                                            Strona otworu okrągłego
+                                            <select
+                                                value={formData.hoodHoleSide || 'left'}
+                                                onChange={(e) => {
+                                                    const val = e.target.value as 'left' | 'right';
+                                                    setFormData(prev => {
+                                                        const updated = { ...prev, hoodHoleSide: val };
+                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, val, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                        return updated;
+                                                    });
+                                                }}
+                                            >
+                                                <option value="left">Lewa</option>
+                                                <option value="right">Prawa</option>
+                                            </select>
+                                        </label>
+                                        <label>
+                                            Odsunięcie (okrągły) (mm)
+                                            <input
+                                                type="number"
+                                                min={95}
+                                                max={formData.width - 131}
+                                                value={formData.hoodHoleOffset || 95}
+                                                onChange={(e) => {
+                                                    const maxOffset = formData.width - 131;
+                                                    const val = Math.min(Math.max(95, Number(e.target.value)), maxOffset);
+                                                    setFormData(prev => {
+                                                        const updated = { ...prev, hoodHoleOffset: val };
+                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, val, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                        return updated;
+                                                    });
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                        <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b' }}>Otwory w półkach (pod rurę fi 150)</h4>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', opacity: selectedShelvesCount === 0 ? 0.5 : 1 }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={!!formData.hasShelfHoles}
+                                                disabled={selectedShelvesCount === 0}
+                                                onChange={(e) => {
+                                                    const val = e.target.checked;
+                                                    setFormData(prev => {
+                                                        const updated = { ...prev, hasShelfHoles: val };
+                                                        // Inicjalizacja liczby otworów na 1 jeśli włączamy, lub na max jeśli mniejsza
+                                                        if (val && (updated.shelfHoleCount || 0) === 0) {
+                                                            updated.shelfHoleCount = Math.min(1, selectedShelvesCount);
+                                                        }
+                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, val, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                        return updated;
+                                                    });
+                                                }}
+                                            />
+                                            Włącz otwory w półkach {selectedShelvesCount === 0 && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>(wymaga wybrania półek)</span>}
+                                        </label>
+                                    </div>
+                                    {formData.hasShelfHoles && selectedShelvesCount > 0 && (
+                                        <label style={{ display: 'block', fontSize: '0.85rem' }}>
+                                            Liczba półek z otworem (maksymalnie {selectedShelvesCount})
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                max={selectedShelvesCount}
+                                                value={formData.shelfHoleCount || 0}
+                                                onChange={(e) => {
+                                                    const val = Math.min(Number(e.target.value), selectedShelvesCount);
+                                                    setFormData(prev => {
+                                                        const updated = { ...prev, shelfHoleCount: val };
+                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, val, updated.extendFrontDown, updated.depthRogowa);
+                                                        return updated;
+                                                    });
+                                                }}
+                                                style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px', marginTop: '0.4rem' }}
+                                            />
+                                        </label>
+                                    )}
+                                </div>
+                                {/* Zabudowa komina per segment */}
+                                {selectedShelvesCount > 0 && (() => {
+                                    const segCount = selectedShelvesCount + 1;
+                                    const enabled: boolean[] = formData.pipeSegmentsEnabled || Array(segCount).fill(false);
+                                    // Upewnij się że tablica ma właściwą długość i domyślnie jest false
+                                    const normalizedEnabled = Array.from({ length: segCount }, (_, i) => enabled[i] === true);
+                                    return (
+                                        <div style={{ marginTop: '1rem', padding: '1rem', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #86efac' }}>
+                                            <h4 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', color: '#15803d' }}>Zabudowa komina — wybór segmentów</h4>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                                {normalizedEnabled.map((isOn, i) => (
+                                                    <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isOn}
+                                                            onChange={(e) => {
+                                                                const newEnabled = [...normalizedEnabled];
+                                                                newEnabled[i] = e.target.checked;
+                                                                setFormData(prev => {
+                                                                    const updated = { ...prev, pipeSegmentsEnabled: newEnabled };
+                                                                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa, newEnabled);
+                                                                    return updated;
+                                                                });
+                                                            }}
+                                                        />
+                                                        Segment {i + 1} (komin)
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                                </>
+                            )}
+
                             {(cabinet.id === 'dolna-narozna' || cabinet.id === 'gorna-narozna' || cabinet.id === 'gorna-narozna-gleboka') && (
                                 <div style={{ marginTop: '0.5rem' }}>
                                     <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
@@ -1054,7 +1576,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                 </div>
                             )}
 
-                            {(cabinet.id === 'dolna-narozna' || cabinet.id === 'gorna-narozna' || cabinet.id === 'gorna-narozna-gleboka') && (
+                            {(cabinet.id === 'dolna-narozna' || cabinet.id === 'gorna-narozna' || cabinet.id === 'gorna-narozna-gleboka' || cabinet.id === 'dolna-rogowa') && (
                                 <div style={{ marginTop: '1rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
                                         Strona szafki (Położenie blendy)
@@ -1084,6 +1606,38 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                 </div>
                             )}
 
+                            {isUpperCabinet && (
+                                <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#fffbeb', borderRadius: '0.5rem', border: '1px solid #fef3c7', marginBottom: '1rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.extendFrontDown || false}
+                                            onChange={handleExtendFrontDownChange}
+                                        />
+                                        <span style={{ fontWeight: 'bold', color: '#92400e' }}>Przedłużenie frontu w dół o 20mm</span>
+                                    </label>
+                                    <p style={{ margin: '0.25rem 0 0 1.7rem', fontSize: '0.75rem', color: '#b45309' }}>
+                                        Front będzie wystawał poniżej korpusu szafki.
+                                    </p>
+                                </div>
+                            )}
+
+                            {cabinet.id.startsWith('dolna-') && cabinet.id !== 'dolna-rogowa' && (
+                                <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f0f9ff', borderRadius: '0.5rem', border: '1px solid #e0f2fe', marginBottom: '1rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.depthRogowa || false}
+                                            onChange={handleDepthRogowaChange}
+                                        />
+                                        <span style={{ fontWeight: 'bold', color: '#0369a1' }}>Zmiana głębokości na 540 (kontynuacja szafki rogowej)</span>
+                                    </label>
+                                    <p style={{ margin: '0.25rem 0 0 1.7rem', fontSize: '0.75rem', color: '#075985' }}>
+                                        Głębokość boku zostanie ustawiona na 540mm, a prześwit na 30mm.
+                                    </p>
+                                </div>
+                            )}
+
                             {allowFullTopOption && (
                                 <div style={{ marginTop: '1rem' }}>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}>
@@ -1101,23 +1655,41 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
                                     Kolor Korpusu
                                 </label>
-                                <select
-                                    value={formData.bodyColor}
-                                    onChange={handleColorChange}
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.5rem',
-                                        border: '1px solid #ddd',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {BODY_COLORS.map(color => (
-                                        <option key={color.value} value={color.value}>
-                                            {color.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setSelectorMode('body')}
+                                        style={{
+                                            padding: '0.8rem',
+                                            background: '#fff',
+                                            border: '1px solid #ddd',
+                                            borderRadius: '8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px',
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            transition: 'border-color 0.2s'
+                                        }}
+                                    >
+                                        <div style={{ 
+                                            width: '40px', 
+                                            height: '40px', 
+                                            borderRadius: '4px', 
+                                            border: '1px solid #eee',
+                                            overflow: 'hidden',
+                                            flexShrink: 0,
+                                            background: decors.find(d => d.id === formData.bodyDecorId)?.imageUrl ? `url(${decors.find(d => d.id === formData.bodyDecorId)?.thumbnailUrl}) center/cover` : '#ffffff'
+                                        }} />
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Materiał korpusu</div>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{decors.find(d => d.id === formData.bodyDecorId)?.name || 'Nie wybrano'}</div>
+                                        </div>
+                                        <span style={{ color: '#94a3b8' }}>&rarr;</span>
+                                    </button>
+
+                                </div>
+
                             </div>
 
                             {cabinet.id.startsWith('dolna-lodowka') && (
@@ -1504,7 +2076,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                             {blockActuatorsUpper && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(wymaga wys. ≤ 600 mm)</span>}
                                         </label>
                                         <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: (formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) || formData.configUnder?.includes('Siłowniki')) ? 1 : 0.5 }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: (cabinet.id === 'gorna-okapowa' || formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) || formData.configUnder?.includes('Siłowniki')) ? 1 : 0.5 }}>
                                             {[1, 2, 3, 4, 5].filter(num => {
                                                 if (!cabinet.configurationOptions) return true;
                                                 const label = num === 1 ? '1 półka' : (num >= 5 ? `${num} półek` : `${num} półki`);
@@ -1526,7 +2098,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                                                 });
                                                                 handleConfigUnderChange(label, e.target.checked);
                                                             }}
-                                                            disabled={(!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) && !formData.configUnder?.includes('Siłowniki')) || !isShelfAllowed(num)}
+                                                            disabled={(cabinet.id !== 'gorna-okapowa' && !formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) && !formData.configUnder?.includes('Siłowniki')) || !isShelfAllowed(num)}
                                                         />
                                                         {display}
                                                     </label>
@@ -1534,6 +2106,59 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                             })}
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {cabinet.id === 'gorna-okapowa' && (
+                                <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
+                                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#1e293b', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line></svg>
+                                        Rozmieszczenie półek - szczegóły
+                                    </div>
+                                    
+                                    {(() => {
+                                        const internalH = formData.height - (formData.hoodHeight || 150) - (THICKNESS * 3);
+                                        const totalShelves = (formData.configUnder || []).reduce((acc, opt) => {
+                                            const m = opt.match(/(\d+)\s*pół/i);
+                                            return m ? parseInt(m[1]) : acc;
+                                        }, 0);
+                                        const spacesCount = totalShelves + 1;
+                                        let remaining = internalH - (totalShelves * THICKNESS);
+                                        const spaceHeights: number[] = [];
+                                        for (let j = 0; j < spacesCount; j++) {
+                                            const h = Math.round(remaining / (spacesCount - j));
+                                            spaceHeights.push(h);
+                                            remaining -= h;
+                                        }
+
+                                        return (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', background: '#fff', border: '2px solid #cbd5e1', borderRadius: '4px', padding: '10px' }}>
+                                                {spaceHeights.map((sh, idx) => (
+                                                    <React.Fragment key={idx}>
+                                                        <div style={{ 
+                                                            height: '40px', 
+                                                            display: 'flex', 
+                                                            alignItems: 'center', 
+                                                            justifyContent: 'center', 
+                                                            background: '#f1f5f9',
+                                                            fontSize: '0.85rem',
+                                                            fontWeight: '600',
+                                                            color: '#475569',
+                                                            border: '1px dashed #cbd5e1'
+                                                        }}>
+                                                            {sh} mm
+                                                        </div>
+                                                        {idx < spaceHeights.length - 1 && (
+                                                            <div style={{ height: '4px', background: '#94a3b8', borderRadius: '2px', margin: '2px 0' }} title="Półka 18mm" />
+                                                        )}
+                                                    </React.Fragment>
+                                                ))}
+                                                <div style={{ marginTop: '8px', textAlign: 'center', fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic' }}>
+                                                    Wymiary prześwitów (od góry do dołu)
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             )}
 
@@ -1637,7 +2262,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                         </div>
 
                                         {/* Szuflady (Tylko dla dolnych, wykluczają się z drzwiami) */}
-                                        {!cabinet.id.startsWith('gorna-') && !cabinet.id.includes('narozna') && (
+                                        {!cabinet.id.startsWith('gorna-') && !cabinet.id.includes('narozna') && cabinet.id !== 'dolna-rogowa' && (
                                             <>
                                                 <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
                                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isNarrowStandard ? 0.4 : 1 }}>
@@ -1680,7 +2305,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                             </>
                                         )}
 
-                                        {filteredOptions.length > 0 && filteredOptions.filter(opt => !['Drzwi', 'Para drzwi', '1 półka', '2 półki', '3 półki', '4 półki', '1 szuflada', '2 szuflady', '3 szuflady', '3 szuflady (2 wysokie jedna niska)', 'Siłowniki'].includes(opt)).map(opt => (
+                                        {filteredOptions.length > 0 && filteredOptions.filter(opt => !['Drzwi', 'Para drzwi', '1 półka', '2 półki', '3 półki', '4 półki', '5 półek', '1 szuflada', '2 szuflady', '3 szuflady', '3 szuflady (2 wysokie jedna niska)', 'Siłowniki'].includes(opt) && !opt.toLowerCase().includes('blenda okapu skrócona')).map(opt => (
                                             <React.Fragment key={opt}>
                                                 <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
                                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1901,21 +2526,44 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
 
                                     {formData.hasFronts && (
                                         <div style={{ marginTop: '0.8rem', paddingLeft: '1.5rem' }}>
-                                            <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.3rem' }}>Wybierz dekor frontu:</label>
-                                            <select
-                                                value={formData.frontMaterial}
-                                                onChange={handleFormFrontsMaterialChange}
-                                                style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px' }}
+                                            <button 
+                                                type="button"
+                                                onClick={() => setSelectorMode('front')}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '0.8rem',
+                                                    background: '#fff',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '8px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '12px',
+                                                    cursor: 'pointer',
+                                                    textAlign: 'left',
+                                                    transition: 'border-color 0.2s'
+                                                }}
                                             >
-                                                {FRONT_MATERIALS.map(m => (
-                                                    <option key={m.value} value={m.value}>{m.name}</option>
-                                                ))}
-                                            </select>
+                                                <div style={{ 
+                                                    width: '40px', 
+                                                    height: '40px', 
+                                                    borderRadius: '4px', 
+                                                    border: '1px solid #eee',
+                                                    overflow: 'hidden',
+                                                    flexShrink: 0,
+                                                    background: decors.find(d => d.id === formData.frontDecorId)?.imageUrl ? `url(${decors.find(d => d.id === formData.frontDecorId)?.thumbnailUrl}) center/cover` : '#ffffff'
+                                                }} />
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Materiał frontów</div>
+                                                    <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{decors.find(d => d.id === formData.frontDecorId)?.name || 'Nie wybrano'}</div>
+                                                </div>
+                                                <span style={{ color: '#94a3b8' }}>&rarr;</span>
+                                            </button>
                                         </div>
                                     )}
                                 </div>
                             )}
-                            </>)}
+                            </>
+                            )}
 
                             <div className={styles.elementsList} style={{ marginBottom: '1rem', border: '1px solid #eee', borderRadius: '4px' }}>
                                 <div style={{ padding: '0.5rem', background: '#f9f9f9', borderBottom: '1px solid #eee', fontWeight: 'bold', fontSize: '0.9rem' }}>
@@ -1929,38 +2577,60 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                                 ELEMENTY KORPUSU (Płyta 18mm / HDF 3mm)
                                             </td>
                                         </tr>
-                                        {formData.elements.filter(el => el.type !== 'front').map((el) => {
-                                            let dimensions = "";
-                                            const name = el.name.toLowerCase();
+                                        {formData.elements
+                                            .filter(el => el.type !== 'front' && !el.id?.startsWith('zabudowa-rury'))
+                                            .map((el) => {
+                                                let dimensions = "";
+                                                const name = el.name.toLowerCase();
 
-                                            // Format based on element type
-                                            if (name.includes('bok')) {
-                                                dimensions = `${el.height} x ${el.depth}`;
-                                            } else if (name.includes('wieniec')) {
-                                                if (name.includes('pionowy')) {
+                                                if (name.includes('bok')) {
+                                                    dimensions = `${el.height} x ${el.depth}`;
+                                                } else if (name.includes('wieniec')) {
+                                                    if (name.includes('pionowy')) {
+                                                        dimensions = `${el.width} x ${el.height}`;
+                                                    } else {
+                                                        dimensions = `${el.width} x ${el.depth}`;
+                                                    }
+                                                } else if (name.includes('plecy')) {
+                                                    dimensions = `${el.height} x ${el.width}`;
+                                                } else if (name.includes('blenda') || name.includes('zabudowa')) {
+                                                    dimensions = `${el.height} x ${el.width}`;
+                                                } else if (name.includes('listwa')) {
                                                     dimensions = `${el.width} x ${el.height}`;
                                                 } else {
-                                                    dimensions = `${el.width} x ${el.depth}`;
+                                                    dimensions = `${el.width || el.height} x ${el.depth || el.width}`;
                                                 }
-                                            } else if (name.includes('plecy')) {
-                                                dimensions = `${el.height} x ${el.width}`;
-                                            } else if (name.includes('blenda')) {
-                                                dimensions = `${el.height} x ${el.width}`;
-                                            } else if (name.includes('listwa')) {
-                                                dimensions = `${el.width} x ${el.height}`;
-                                            } else {
-                                                dimensions = `${el.width || el.height} x ${el.depth || el.width}`;
-                                            }
 
-                                            return (
-                                                <tr key={el.id} style={{ borderBottom: '1px solid #eee' }}>
-                                                    <td style={{ padding: '0.5rem' }}>{el.name}</td>
-                                                    <td style={{ padding: '0.5rem', textAlign: 'right', color: '#666' }}>
-                                                        {dimensions} mm
+                                                return (
+                                                    <tr key={el.id} style={{ borderBottom: '1px solid #eee' }}>
+                                                        <td style={{ padding: '0.5rem' }}>{el.name}</td>
+                                                        <td style={{ padding: '0.5rem', textAlign: 'right', color: '#666' }}>
+                                                            {dimensions} mm
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+
+                                        {/* Zabudowa Rury — tylko dla szafki okapowej */}
+                                        {cabinet.id === 'gorna-okapowa' && formData.elements.filter(el => el.id?.startsWith('zabudowa-rury')).length > 0 && (
+                                            <>
+                                                <tr style={{ backgroundColor: '#e8f4fd' }}>
+                                                    <td colSpan={2} style={{ padding: '0.3rem 0.5rem', fontWeight: 'bold', fontSize: '0.8rem', color: '#1e40af', borderTop: '2px solid #bfdbfe' }}>
+                                                        ZABUDOWA RURY WENTYLACYJNEJ
                                                     </td>
                                                 </tr>
-                                            );
-                                        })}
+                                                {formData.elements
+                                                    .filter(el => el.id?.startsWith('zabudowa-rury'))
+                                                    .map((el) => (
+                                                        <tr key={el.id} style={{ borderBottom: '1px solid #dbeafe', backgroundColor: '#f0f7ff' }}>
+                                                            <td style={{ padding: '0.5rem' }}>{el.name}</td>
+                                                            <td style={{ padding: '0.5rem', textAlign: 'right', color: '#1d4ed8', fontWeight: 'bold' }}>
+                                                                {el.height - 1} x {el.width} mm
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                            </>
+                                        )}
 
                                         {/* Grupa Fronty */}
                                         {formData.elements.filter(el => el.type === 'front').length > 0 && (
@@ -1970,16 +2640,14 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                                         FRONTY ZEWNĘTRZNE ({formData.frontMaterial})
                                                     </td>
                                                 </tr>
-                                                {formData.elements.filter(el => el.type === 'front').map((el) => {
-                                                    return (
-                                                        <tr key={el.id} style={{ borderBottom: '1px solid #eee', backgroundColor: '#fcfcfc' }}>
-                                                            <td style={{ padding: '0.5rem' }}>{el.name}</td>
-                                                            <td style={{ padding: '0.5rem', textAlign: 'right', color: '#0066cc', fontWeight: 'bold' }}>
-                                                                {el.width} x {el.height} mm
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
+                                                {formData.elements.filter(el => el.type === 'front').map((el) => (
+                                                    <tr key={el.id} style={{ borderBottom: '1px solid #eee', backgroundColor: '#fcfcfc' }}>
+                                                        <td style={{ padding: '0.5rem' }}>{el.name}</td>
+                                                        <td style={{ padding: '0.5rem', textAlign: 'right', color: '#0066cc', fontWeight: 'bold' }}>
+                                                            {el.width} x {el.height} mm
+                                                        </td>
+                                                    </tr>
+                                                ))}
                                             </>
                                         )}
                                     </tbody>
@@ -2006,6 +2674,20 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                     </div>
                 </div>
             </div>
+
+            {selectorMode && (
+                <DecorSelector 
+                    title={selectorMode === 'body' ? 'Wybierz dekor korpusu' : 'Wybierz dekor frontów'}
+                    onClose={() => setSelectorMode(null)}
+                    onSelect={(decor) => {
+                        setFormData(prev => ({
+                            ...prev,
+                            [selectorMode === 'body' ? 'bodyDecorId' : 'frontDecorId']: decor.id
+                        }));
+                        setSelectorMode(null);
+                    }}
+                />
+            )}
         </div>
     );
 }

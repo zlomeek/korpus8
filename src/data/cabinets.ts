@@ -25,6 +25,7 @@ export interface Cabinet {
   ovenSpaceHeight?: number; // Optional oven niche space height
   ovenBaseHeight?: number; // Optional height of the cabinet space below the oven
   fridgeSpaceHeight?: number; // Optional fridge space height
+  hoodHeight?: number; // Optional hood height space (for szafka okapowa)
   sinkBackRimHeight?: number; // Optional height for sink rear vertical rim position
   isFullTop?: boolean;
   cornerOrientation?: 'left' | 'right';
@@ -35,6 +36,12 @@ export interface Cabinet {
   isCustomWidth?: boolean; // flag for custom width option
   leftCutType?: 'none' | 'lyzwa-male' | 'lyzwa-female' | 'lyzwa-female-corner' | 'straight' | 'angle-45-left' | 'angle-45-right';
   rightCutType?: 'none' | 'lyzwa-male' | 'lyzwa-female' | 'lyzwa-female-corner' | 'straight' | 'angle-45-left' | 'angle-45-right';
+  hasShelfHoles?: boolean;
+  shelfHoleCount?: number;
+  extendFrontDown?: boolean;
+  depthRogowa?: boolean;
+  bodyDecorId?: string;
+  frontDecorId?: string;
 }
 
 export const cabinetTemplates: Cabinet[] = [
@@ -63,6 +70,31 @@ export const cabinetTemplates: Cabinet[] = [
       { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 510 }, // 560 - 50
       { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 510 },
       { id: "plecy", name: "Plecy", width: 596, height: 716 },
+    ],
+  },
+  {
+    id: "dolna-rogowa",
+    name: "Szafka dolna rogowa",
+    width: 620,
+    height: 720,
+    depth: 540,
+    lockDepth: true,
+    cornerOrientation: "right",
+    standardWidths: [620],
+    standardHeights: [720, 760, 780],
+    configurationOptions: [
+      "1 półka",
+      "2 półki",
+      "3 półki",
+      "4 półki",
+      "Cargo"
+    ],
+    elements: [
+      { id: "bok-lewy", name: "Bok lewy", height: 720, depth: 540 },
+      { id: "bok-prawy", name: "Bok prawy", height: 720, depth: 540 },
+      { id: "wieniec-dolny", name: "Wieniec dolny", width: 584, depth: 510 },
+      { id: "wieniec-gorny", name: "Wieniec górny", width: 584, depth: 510 },
+      { id: "plecy", name: "Plecy", width: 616, height: 716 },
     ],
   },
   {
@@ -248,6 +280,45 @@ export const cabinetTemplates: Cabinet[] = [
       { id: "wieniec-gorny-przod", name: "Wieniec górny (przód)", width: 864, depth: 100 },
       { id: "wieniec-gorny-tyl", name: "Wieniec górny (tył)", width: 864, depth: 100 },
       { id: "plecy", name: "Plecy", width: 896, height: 696 },
+    ],
+  },
+  {
+    id: "gorna-okapowa",
+    name: "Szafka górna okapowa",
+    width: 600,
+    height: 700,
+    depth: 330,
+    lockDepth: true,
+    standardWidths: [500, 600, 800, 900],
+    standardHeights: [500, 600, 700, 800, 900, 1000, 1100, 1200],
+    standardDepths: [330, 560],
+    hoodHeight: 150, // default hood height
+    configurationOptions: [
+      "Drzwi klapowe",
+      "Drzwi",
+      "Para drzwi",
+      "1 półka",
+      "2 półki",
+      "3 półki",
+      "4 półki",
+      "5 półek",
+      "Blenda okapu skrócona z lewej",
+      "Blenda okapu skrócona z prawej"
+    ],
+    elements: [
+      // Boki na pełną wysokość
+      { id: "bok-lewy", name: "Bok lewy", height: 700, depth: 330 },
+      { id: "bok-prawy", name: "Bok prawy", height: 700, depth: 330 },
+      // Najniższy wieniec pod okapem
+      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 330 }, 
+      // Wieniec środkowy (nad okapem) - otwor 150mm bedzie wyciety w parametrach ale nie jest tu bezposrednio widoczny
+      { id: "wieniec-srodkowy", name: "Wieniec środkowy", width: 564, depth: 330 },
+      // Wieniec górny
+      { id: "wieniec-gorny", name: "Wieniec górny", width: 564, depth: 330 },
+      // Blenda przednia - miedzy bokami
+      { id: "blenda-przednia", name: "Blenda przednia", width: 564, height: 150, depth: 18 },
+      // Plecy - nad wieńcem środkowym
+      { id: "plecy", name: "Plecy", width: 596, height: 536 }, // 700-150-14, wyliczane dynamicznie
     ],
   },
   {

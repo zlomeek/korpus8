@@ -7,6 +7,7 @@ import RoomScene from "@/components/RoomPlanner/RoomScene";
 import CabinetForm from "@/components/CabinetForm";
 import TechnicalDrawing from "@/components/RoomPlanner/TechnicalDrawing";
 import ElevationDrawing from "@/components/RoomPlanner/ElevationDrawing";
+import CartPanel from "@/components/RoomPlanner/CartPanel";
 
 export interface PlacedCabinet {
     uuid: string;
@@ -34,14 +35,17 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
     const [isPreviewMode, setIsPreviewMode] = useState(false);
     const [isTechnicalView, setIsTechnicalView] = useState(false);
     const [isElevationView, setIsElevationView] = useState(false);
-    const [technicalFilter, setTechnicalFilter] = useState<'all' | 'lower' | 'upper'>('all');
+    const [technicalFilter, setTechnicalFilter] = useState<'lower' | 'upper-shallow' | 'upper-deep'>('lower');
     const [currentElevationWall, setCurrentElevationWall] = useState<'left' | 'back' | 'right'>('back');
     const [showTechnicalBanner, setShowTechnicalBanner] = useState(false);
     const [showElevationBanner, setShowElevationBanner] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, cabUuid: string } | null>(null);
     const [lyzwaCabUuid, setLyzwaCabUuid] = useState<string | null>(null);
+    const [extensionPrompt, setExtensionPrompt] = useState<{ uuids: string[], direction: 'left' | 'right' } | null>(null);
     const [blendaWidth, setBlendaWidth] = useState<number>(200);
     const [blendaHeight, setBlendaHeight] = useState<number>(200);
+    const [showFrontEdges, setShowFrontEdges] = useState(false);
+    const [isCartOpen, setIsCartOpen] = useState(false);
 
     useEffect(() => {
         if (isTechnicalView) {
@@ -121,7 +125,9 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
         const frontWidth = (template as any).frontWidth || 600;
         const w2 = (template as any).width2 || (template.id.startsWith('gorna-') ? 650 : 900);
 
-        // Initialize elements using generateFixedElements to ensure everything is set (even if template is empty)
+        const hoodCutoutWidth = (template as any).hoodCutoutWidth || Math.max(0, template.width - 76);
+        const hoodCutoutOffset = (template as any).hoodCutoutOffset !== undefined ? (template as any).hoodCutoutOffset : Math.round((template.width - 36 - hoodCutoutWidth) / 2);
+        
         const initialElements = generateFixedElements(
             template.width,
             template.height,
@@ -138,7 +144,21 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
             microwaveSpaceHeight,
             ovenBaseHeight,
             w2,
-            false // Default to no fronts
+            false, // Default to no fronts
+            'Płyta laminowana 18mm', // frontMaterial
+            false, // splitCargoFront
+            (template as any).hoodHeight,
+            (template as any).hoodCutoutSide,
+            hoodCutoutOffset,
+            hoodCutoutWidth,
+            (template as any).hoodCutoutDepth,
+            (template as any).hoodHoleSide,
+            (template as any).hoodHoleOffset,
+            (template as any).hasHoodHoleTop,
+            (template as any).hasShelfHoles,
+            (template as any).shelfHoleCount,
+            (template as any).extendFrontDown || false,
+            (template as any).depthRogowa || false
         );
 
         const newPlacedCabinet: PlacedCabinet = {
@@ -155,7 +175,17 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                 width2: w2,
                 elements: initialElements,
                 hasFronts: false,
-                bodyColor: '#fefdf5'
+                bodyColor: '#fefdf5',
+                hoodHeight: (template as any).hoodHeight || (template.id === 'gorna-okapowa' ? 150 : undefined),
+                hoodCutoutSide: (template as any).hoodCutoutSide || 'left',
+                hoodCutoutWidth: hoodCutoutWidth,
+                hoodCutoutOffset: hoodCutoutOffset,
+                hoodCutoutDepth: (template as any).hoodCutoutDepth || 272,
+                hoodHoleSide: (template as any).hoodHoleSide || 'left',
+                hoodHoleOffset: (template as any).hoodHoleOffset !== undefined ? (template as any).hoodHoleOffset : 95,
+                hasHoodHoleTop: (template as any).hasHoodHoleTop !== undefined ? (template as any).hasHoodHoleTop : false,
+                hasShelfHoles: (template as any).hasShelfHoles || false,
+                shelfHoleCount: (template as any).shelfHoleCount || 0
             },
             position: [0, defaultY, 0],
             rotation: [0, 0, 0]
@@ -285,7 +315,19 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                     w2,
                     hasFronts,
                     c.frontMaterial,
-                    c.splitCargoFront
+                    c.splitCargoFront,
+                    c.hoodHeight,
+                    c.hoodCutoutSide,
+                    c.hoodCutoutOffset,
+                    c.hoodCutoutWidth,
+                    c.hoodCutoutDepth,
+                    c.hoodHoleSide,
+                    c.hoodHoleOffset,
+                    c.hasHoodHoleTop,
+                    c.hasShelfHoles,
+                    c.shelfHoleCount,
+                    c.extendFrontDown || false,
+                    c.depthRogowa || false
                 );
                 return {
                     ...cab,
@@ -305,7 +347,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
         if (targets.length === 0) return;
 
         // Baza obrotu: priorytetyzujemy szafki proste (unikamy rotacji szafek narożnych)
-        const normalCab = targets.find(c => !c.cabinet.id.includes('narozna'));
+        const normalCab = targets.find(c => !c.cabinet.id.includes('narozna') && !c.cabinet.id.includes('rogowa'));
         const baseRotY = normalCab ? normalCab.rotation[1] : targets[0].rotation[1];
 
         // -----------------------------------------------------------------------
@@ -392,12 +434,12 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
         setSelectedCabinetIds([newCabId]);
     };
 
-    const handleExtendCountertop = (uuids: string[], direction: 'left' | 'right') => {
+    const handleExtendCountertop = (uuids: string[], direction: 'left' | 'right', amount: number = 38) => {
         setPlacedCabinets(prev => prev.map(cab => {
             if (!uuids.includes(cab.uuid) || !cab.cabinet.id.startsWith('blat-')) return cab;
 
             const rotY = cab.rotation[1];
-            const extendAmount = 38;
+            const extendAmount = amount;
             const shiftAmount = extendAmount / 2;
             const sign = Math.abs(Math.cos(rotY)) > 0.5 ? 1 : -1;
             // Dla poszerzenia z prawej: przesuwamy środek w prawo (+X), o ile sign=1
@@ -424,7 +466,19 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                 undefined,
                 false,
                 undefined,
-                undefined
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                false,
+                false
             );
 
             return {
@@ -441,11 +495,11 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
 
     const handleExtendStrip = (uuids: string[], direction: 'left' | 'right', customAmount?: number) => {
         setPlacedCabinets(prev => prev.map(cab => {
-            if (!uuids.includes(cab.uuid) || !cab.cabinet.id.includes('listwa')) return cab;
+            if (!uuids.includes(cab.uuid) || !(cab.cabinet.id.includes('listwa') || cab.cabinet.id.startsWith('blat-'))) return cab;
 
             const rotY = cab.rotation[1];
             const isPodszafkowa = cab.cabinet.id === 'gorna-listwa-podszafkowa';
-            const extendAmount = customAmount !== undefined ? customAmount : (isPodszafkowa ? 350 : 328);
+            const extendAmount = customAmount !== undefined ? customAmount : (isPodszafkowa ? 348 : 328);
             const shiftAmount = extendAmount / 2;
             const sign = Math.abs(Math.cos(rotY)) > 0.5 ? 1 : -1;
             const dLocalX = (direction === 'right' ? shiftAmount : -shiftAmount) * sign;
@@ -790,7 +844,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
     const handleTrimCountertop = (uuids: string[], direction: 'left' | 'right', amount?: number) => {
         setPlacedCabinets(prev => prev.map(cab => {
             if (!uuids.includes(cab.uuid) || !cab.cabinet.id.startsWith('blat-')) return cab;
-            
+
             const trimAmount = amount !== undefined ? amount : 600;
             if (cab.cabinet.width <= trimAmount) return cab; // Nie ucinamy jeśli zniknie całkowicie
 
@@ -820,7 +874,19 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                 undefined,
                 false,
                 undefined,
-                undefined
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                false,
+                false
             );
 
             return {
@@ -1184,6 +1250,137 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
 
             {/* Main 3D Viewport */}
             <div style={{ flex: 1, position: 'relative' }}>
+                {/* Top Center Toolbar */}
+                <div style={{
+                    position: 'absolute',
+                    top: '20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 1000,
+                    display: 'flex',
+                    gap: '12px',
+                    alignItems: 'center',
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    padding: '8px 20px',
+                    borderRadius: '40px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                    border: '1px solid #ddd',
+                    backdropFilter: 'blur(4px)'
+                }}>
+                    <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        fontSize: '0.9rem',
+                        color: '#333',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        <input
+                            type="checkbox"
+                            checked={showFrontEdges}
+                            onChange={(e) => setShowFrontEdges(e.target.checked)}
+                            style={{
+                                width: '18px',
+                                height: '18px',
+                                cursor: 'pointer',
+                                accentColor: '#22c55e'
+                            }}
+                        />
+                        Krawędzie frontów
+                    </label>
+
+                    <div style={{ width: '1px', height: '20px', background: '#ddd' }} />
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                            onClick={() => setIsTechnicalView(prev => !prev)}
+                            style={{
+                                padding: '6px 12px',
+                                borderRadius: '20px',
+                                border: 'none',
+                                background: isTechnicalView ? '#22c55e' : '#f3f4f6',
+                                color: isTechnicalView ? '#fff' : '#666',
+                                fontSize: '0.8rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            📐 Techniczny (Z)
+                        </button>
+                        <button
+                            onClick={() => setIsElevationView(prev => !prev)}
+                            style={{
+                                padding: '6px 12px',
+                                borderRadius: '20px',
+                                border: 'none',
+                                background: isElevationView ? '#3b82f6' : '#f3f4f6',
+                                color: isElevationView ? '#fff' : '#666',
+                                fontSize: '0.8rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            📏 Elewacja (C)
+                        </button>
+                        <button
+                            onClick={() => setIsPreviewMode(prev => !prev)}
+                            style={{
+                                padding: '6px 12px',
+                                borderRadius: '20px',
+                                border: 'none',
+                                background: isPreviewMode ? '#8b5cf6' : '#f3f4f6',
+                                color: isPreviewMode ? '#fff' : '#666',
+                                fontSize: '0.8rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            👁️ Podgląd (X)
+                        </button>
+                    </div>
+
+                    <div style={{ width: '1px', height: '20px', background: '#ddd' }} />
+
+                    {/* Przycisk koszyka */}
+                    <button
+                        onClick={() => setIsCartOpen(prev => !prev)}
+                        title="Wycena projektu"
+                        style={{
+                            padding: '6px 14px',
+                            borderRadius: '20px',
+                            border: 'none',
+                            background: isCartOpen ? '#f59e0b' : '#f3f4f6',
+                            color: isCartOpen ? '#fff' : '#666',
+                            fontSize: '0.82rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                        }}
+                    >
+                        🛒
+                        {placedCabinets.length > 0 && (
+                            <span style={{
+                                background: '#ef4444',
+                                color: '#fff',
+                                borderRadius: '999px',
+                                fontSize: '0.65rem',
+                                fontWeight: 800,
+                                padding: '1px 5px',
+                                lineHeight: '1.4',
+                            }}>
+                                {placedCabinets.length}
+                            </span>
+                        )}
+                    </button>
+                </div>
                 <RoomScene
                     roomDimensions={roomDimensions}
                     placedCabinets={placedCabinets}
@@ -1193,6 +1390,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                     onContextMenu={(uuid, event) => !isPreviewMode && !isTechnicalView && setContextMenu({ ...event, cabUuid: uuid })}
                     isPreviewMode={isPreviewMode}
                     isTechnicalView={isTechnicalView}
+                    showFrontEdges={showFrontEdges}
                 />
             </div>
 
@@ -1216,23 +1414,27 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                         border: '1px solid #ddd',
                         gap: '4px'
                     }}>
-                        {(['all', 'lower', 'upper'] as const).map(f => (
+                        {([
+                            { id: 'lower', label: 'Dół' },
+                            { id: 'upper-shallow', label: 'Góra płytka' },
+                            { id: 'upper-deep', label: 'Góra głęboka' }
+                        ] as const).map(f => (
                             <button
-                                key={f}
-                                onClick={() => setTechnicalFilter(f)}
+                                key={f.id}
+                                onClick={() => setTechnicalFilter(f.id)}
                                 style={{
                                     padding: '8px 16px',
                                     borderRadius: '8px',
                                     border: 'none',
-                                    background: technicalFilter === f ? '#22c55e' : 'transparent',
-                                    color: technicalFilter === f ? '#fff' : '#666',
-                                    fontWeight: 'bold',
+                                    background: technicalFilter === f.id ? '#2563eb' : 'transparent',
+                                    color: technicalFilter === f.id ? '#fff' : '#4b5563',
                                     cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    fontSize: '0.9rem'
+                                    fontSize: '0.85rem',
+                                    fontWeight: 600,
+                                    transition: 'all 0.2s'
                                 }}
                             >
-                                {f === 'all' ? 'Wszystkie' : (f === 'lower' ? 'Szafki Dolne' : 'Szafki Górne')}
+                                {f.label}
                             </button>
                         ))}
                     </div>
@@ -1366,13 +1568,20 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                     />
                     {(() => {
                         const cab = placedCabinets.find(c => c.uuid === contextMenu.cabUuid);
-                        if (!cab || cab.cabinet.id !== 'gorna-listwa-miedzy-szafkowa') return null;
+                        if (!cab) return null;
+                        
+                        const isListwaItem = cab.cabinet.id === 'gorna-listwa-miedzy-szafkowa';
+                        const isStandard540Item = cab.cabinet.id === 'dolna-standard' && cab.cabinet.depth === 540;
+
+                        if (!isListwaItem && !isStandard540Item) return null;
+
                         return (
                             <ContextButton
                                 label="Wysuń o 18mm 📏"
                                 onClick={() => {
                                     const targets = selectedCabinetIds.includes(contextMenu.cabUuid) ? selectedCabinetIds : [contextMenu.cabUuid];
                                     handleMoveForward(targets, 18);
+                                    setContextMenu(null);
                                 }}
                             />
                         );
@@ -1535,7 +1744,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                     <h4 style={{ margin: '4px 12px', fontSize: '0.7rem', color: '#f59e0b', textTransform: 'uppercase' }}>Edycja listwy</h4>
                                     {(() => {
                                         const isPodszafkowa = targetCabs.every(c => c.cabinet.id === 'gorna-listwa-podszafkowa');
-                                        const value = isPodszafkowa ? '35cm' : '32.8cm';
+                                        const value = isPodszafkowa ? '34.8cm' : '32.8cm';
                                         return (
                                             <>
                                                 <ContextButton
@@ -1554,6 +1763,12 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                                                 <ContextButton label="Poszerz o 850mm" onClick={() => { handleExtendStrip(targets, 'left', 850); setContextMenu(null); }} />
                                                             </>
                                                         )}
+                                                    />
+                                                )}
+                                                {isPodszafkowa && (
+                                                    <ContextButton
+                                                        label="Przedłuż pod okap (L) 📐"
+                                                        onClick={() => { setExtensionPrompt({ uuids: targets, direction: 'left' }); setContextMenu(null); }}
                                                     />
                                                 )}
                                                 <ContextButton
@@ -1577,6 +1792,12 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                                                 <ContextButton label="Poszerz o 850mm" onClick={() => { handleExtendStrip(targets, 'right', 850); setContextMenu(null); }} />
                                                             </>
                                                         )}
+                                                    />
+                                                )}
+                                                {isPodszafkowa && (
+                                                    <ContextButton
+                                                        label="Przedłuż pod okap (P) 📐"
+                                                        onClick={() => { setExtensionPrompt({ uuids: targets, direction: 'right' }); setContextMenu(null); }}
                                                     />
                                                 )}
                                                 <ContextButton
@@ -1605,44 +1826,59 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                 <>
                                     <div style={{ height: '1px', background: '#444', margin: '4px 0' }} />
                                     <ContextButton
-                                        label="Poszerz o 38mm z lewej 📐"
-                                        onClick={() => {
-                                            handleExtendCountertop(targets, 'left');
-                                            setContextMenu(null);
-                                        }}
+                                        label="Przedłuż nad szafkę rogową 📐"
+                                        onClick={() => {}}
+                                        submenu={(
+                                            <>
+                                                <ContextButton label="W lewo (L)" onClick={() => { handleExtendCountertop(targets, 'left', 618); setContextMenu(null); }} />
+                                                <ContextButton label="W prawo (P)" onClick={() => { handleExtendCountertop(targets, 'right', 618); setContextMenu(null); }} />
+                                            </>
+                                        )}
                                     />
                                     <ContextButton
-                                        label="Poszerz o 38mm z prawej 📐"
-                                        onClick={() => {
-                                            handleExtendCountertop(targets, 'right');
-                                            setContextMenu(null);
-                                        }}
+                                        label="Poszerz o 18mm 📐"
+                                        onClick={() => {}}
+                                        submenu={(
+                                            <>
+                                                <ContextButton label="Z lewej (L)" onClick={() => { handleExtendCountertop(targets, 'left', 18); setContextMenu(null); }} />
+                                                <ContextButton label="Z prawej (P)" onClick={() => { handleExtendCountertop(targets, 'right', 18); setContextMenu(null); }} />
+                                            </>
+                                        )}
                                     />
                                     <ContextButton
-                                        label="Skróć o 18mm z lewej 📏"
-                                        onClick={() => {
-                                            handleTrimCountertop(targets, 'left', 18);
-                                            setContextMenu(null);
-                                        }}
+                                        label="Poszerz o 2cm 📐"
+                                        onClick={() => {}}
+                                        submenu={(
+                                            <>
+                                                <ContextButton label="Z lewej (L)" onClick={() => { handleExtendCountertop(targets, 'left', 20); setContextMenu(null); }} />
+                                                <ContextButton label="Z prawej (P)" onClick={() => { handleExtendCountertop(targets, 'right', 20); setContextMenu(null); }} />
+                                            </>
+                                        )}
                                     />
                                     <ContextButton
-                                        label="Skróć o 18mm z prawej 📏"
-                                        onClick={() => {
-                                            handleTrimCountertop(targets, 'right', 18);
-                                            setContextMenu(null);
-                                        }}
+                                        label="Skróć o 18mm 📏"
+                                        onClick={() => {}}
+                                        submenu={(
+                                            <>
+                                                <ContextButton label="Z lewej (L)" onClick={() => { handleTrimCountertop(targets, 'left', 18); setContextMenu(null); }} />
+                                                <ContextButton label="Z prawej (P)" onClick={() => { handleTrimCountertop(targets, 'right', 18); setContextMenu(null); }} />
+                                            </>
+                                        )}
                                     />
                                     <ContextButton
-                                        label="Utnij 60cm z lewej (do narożnika) ✂️"
-                                        onClick={() => {
-                                            handleTrimCountertop(targets, 'left');
-                                            setContextMenu(null);
-                                        }}
+                                        label="Utnij 60cm (do narożnika) ✂️"
+                                        onClick={() => {}}
+                                        submenu={(
+                                            <>
+                                                <ContextButton label="Z lewej (L)" onClick={() => { handleTrimCountertop(targets, 'left'); setContextMenu(null); }} />
+                                                <ContextButton label="Z prawej (P)" onClick={() => { handleTrimCountertop(targets, 'right'); setContextMenu(null); }} />
+                                            </>
+                                        )}
                                     />
                                     <ContextButton
-                                        label="Utnij 60cm z prawej (do narożnika) ✂️"
+                                        label="Przesuń do tyłu o 18mm 📏"
                                         onClick={() => {
-                                            handleTrimCountertop(targets, 'right');
+                                            handleMoveForward(targets, -18);
                                             setContextMenu(null);
                                         }}
                                     />
@@ -1749,6 +1985,17 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                 );
             })()}
 
+            {extensionPrompt && (
+                <ExtensionModal
+                    direction={extensionPrompt.direction}
+                    onClose={() => setExtensionPrompt(null)}
+                    onApply={(amount) => {
+                        handleExtendStrip(extensionPrompt.uuids, extensionPrompt.direction, amount);
+                        setExtensionPrompt(null);
+                    }}
+                />
+            )}
+
             {/* Configurator Modal */}
             {isConfiguratorOpen && selectedCabinetIds.length === 1 && (
                 <CabinetForm
@@ -1756,6 +2003,14 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                     settings={defaultPricingSettings}
                     onClose={() => setIsConfiguratorOpen(false)}
                     onAddToCart={(updatedCab) => handleSaveConfiguration(updatedCab)}
+                />
+            )}
+
+            {/* Cart Panel - wycena projektu */}
+            {isCartOpen && (
+                <CartPanel
+                    placedCabinets={placedCabinets}
+                    onClose={() => setIsCartOpen(false)}
                 />
             )}
         </div>
@@ -1932,6 +2187,75 @@ function LyzwaPanel({
                 >
                     Zastosuj łyżwę
                 </button>
+            </div>
+        </div>
+    );
+}
+
+function ExtensionModal({
+    onApply,
+    onClose,
+    direction
+}: {
+    onApply: (amount: number) => void;
+    onClose: () => void;
+    direction: 'left' | 'right';
+}) {
+    const [amount, setAmount] = React.useState<number>(600);
+
+    return (
+        <div
+            style={{
+                position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.7)', zIndex: 3000,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backdropFilter: 'blur(4px)'
+            }}
+            onClick={onClose}
+        >
+            <div
+                style={{
+                    background: '#1e1e1e', border: '1px solid #555', borderRadius: '12px',
+                    padding: '24px', width: '320px',
+                    boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
+                    color: '#fff', fontFamily: 'system-ui, sans-serif'
+                }}
+                onClick={e => e.stopPropagation()}
+            >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', color: '#f59e0b' }}>📐 Przedłużenie ({direction === 'left' ? 'L' : 'P'})</h3>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#aaa', marginBottom: '8px' }}>Długość przedłużenia (mm):</label>
+                    <input
+                        type="number"
+                        value={amount}
+                        onChange={e => setAmount(Number(e.target.value))}
+                        autoFocus
+                        onKeyDown={e => e.key === 'Enter' && onApply(amount)}
+                        style={{
+                            width: '100%', padding: '12px', background: '#333', border: '1px solid #555',
+                            borderRadius: '8px', color: '#fff', fontSize: '1.1rem', outline: 'none'
+                        }}
+                    />
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button
+                        onClick={onClose}
+                        style={{ padding: '8px 18px', background: '#333', color: '#ccc', border: '1px solid #555', borderRadius: '6px', cursor: 'pointer' }}
+                    >
+                        Anuluj
+                    </button>
+                    <button
+                        onClick={() => onApply(amount)}
+                        style={{ padding: '8px 18px', background: '#f59e0b', color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}
+                    >
+                        Przedłuż
+                    </button>
+                </div>
             </div>
         </div>
     );

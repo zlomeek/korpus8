@@ -16,6 +16,7 @@ interface RoomSceneProps {
     onContextMenu?: (uuid: string, event: { x: number, y: number }) => void;
     isPreviewMode?: boolean;
     isTechnicalView?: boolean;
+    showFrontEdges?: boolean;
 }
 
 function CameraManager({ isTechnicalView, wallHeight, halfD }: { isTechnicalView: boolean, wallHeight: number, halfD: number }) {
@@ -40,7 +41,8 @@ export default function RoomScene({
     onUpdateCabinet,
     onContextMenu,
     isPreviewMode,
-    isTechnicalView
+    isTechnicalView,
+    showFrontEdges
 }: RoomSceneProps) {
 
     // Room center is [0,0,0], walls are calculated from there
@@ -60,10 +62,11 @@ export default function RoomScene({
         >
             {/* UI/Lights */}
             <color attach="background" args={["#2a2d32"]} />
-            <ambientLight intensity={0.9} />
+            <ambientLight intensity={0.7} />
+            <hemisphereLight intensity={0.8} groundColor="#444444" color="#ffffff" />
             <directionalLight
                 position={[5000, 5000, 5000]}
-                intensity={1.5}
+                intensity={1.8} 
                 castShadow
                 shadow-mapSize={[2048, 2048]}
                 shadow-camera-left={-halfW * 2}
@@ -72,7 +75,11 @@ export default function RoomScene({
                 shadow-camera-bottom={-halfD * 2}
                 shadow-bias={-0.001}
             />
-            <pointLight position={[0, wallHeight, 0]} intensity={0.5} color="#fff" />
+            <directionalLight position={[-5000, 2000, -5000]} intensity={1.2} />
+            <pointLight position={[0, wallHeight, 0]} intensity={0.4} color="#fff" />
+
+
+
 
             <CameraManager isTechnicalView={!!isTechnicalView} wallHeight={wallHeight} halfD={halfD} />
 
@@ -123,20 +130,7 @@ export default function RoomScene({
                                 <meshStandardMaterial color="#b0b0b0" />
                             </mesh>
 
-                            {/* EXTERIOR WALLS (Dark Brick/Brown color) */}
-                            {/* We just wrap the interior white walls with slightly larger dark ones on the outside */}
-                            <mesh position={[0, h / 2, -halfD - thickness - 1]}>
-                                <boxGeometry args={[w + (thickness + 2) * 2, h, 2]} />
-                                <meshStandardMaterial color="#5d4037" />
-                            </mesh>
-                            <mesh position={[-halfW - thickness - 1, h / 2, 0]}>
-                                <boxGeometry args={[2, h, d + (thickness + 2) * 2]} />
-                                <meshStandardMaterial color="#5d4037" />
-                            </mesh>
-                            <mesh position={[halfW + thickness + 1, h / 2, 0]}>
-                                <boxGeometry args={[2, h, d + (thickness + 2) * 2]} />
-                                <meshStandardMaterial color="#5d4037" />
-                            </mesh>
+
 
                             {/* Wall Labels (Always visible on top of wall sections) */}
                             {/* Back Wall Label */}
@@ -212,6 +206,8 @@ export default function RoomScene({
                     onContextMenu={onContextMenu}
                     isLocked={cab.isLocked}
                     isPreviewMode={isPreviewMode}
+                    isTechnicalView={isTechnicalView}
+                    showFrontEdges={showFrontEdges}
                 />
             ))}
 

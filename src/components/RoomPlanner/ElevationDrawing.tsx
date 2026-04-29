@@ -89,7 +89,14 @@ export default function ElevationDrawing({ placedCabinets, roomDimensions, curre
                     const cabW = cab.cabinet.width;
                     const cabH = cab.cabinet.height;
                     const cabY = cab.position[1];
-                    const isGorna = cab.cabinet.id.includes('gorna');
+                    const id = cab.cabinet.id;
+                    const isGorna = id.startsWith('gorna-');
+                    const isAux = id.startsWith('blat-') || id.startsWith('blenda-') || id.startsWith('fartuch-') || id.includes('listwa-');
+
+                    let fillColor = isGorna ? "#f0f9ff" : "#f1f5f9";
+                    if (isAux) {
+                        fillColor = id.startsWith('blat-') ? "#fde68a" : "#e2e8f0"; // Yellowish for blat, gray for others
+                    }
 
                     return (
                         <g key={cab.uuid}>
@@ -98,24 +105,28 @@ export default function ElevationDrawing({ placedCabinets, roomDimensions, curre
                                 y={cabY} 
                                 width={cabW} 
                                 height={cabH} 
-                                fill={isGorna ? "#f0f9ff" : "#f1f5f9"} 
-                                stroke="#000" 
-                                strokeWidth="2" 
+                                fill={fillColor} 
+                                fillOpacity={isAux ? 0.6 : 1}
+                                stroke={isAux ? "#94a3b8" : "#000"} 
+                                strokeWidth={isAux ? "1" : "2"} 
+                                strokeDasharray={isAux ? "4 2" : "0"}
                             />
-                            {/* Measurements text labels */}
-                            <g transform="scale(1, -1)">
-                                <text 
-                                    x={localX} 
-                                    y={-cabY - cabH/2} 
-                                    textAnchor="middle" 
-                                    alignmentBaseline="middle" 
-                                    fontSize="40" 
-                                    fontWeight="bold" 
-                                    fill="#333"
-                                >
-                                    {cabW}x{cabH}
-                                </text>
-                            </g>
+                            {/* Measurements text labels - Hide for auxiliary items to reduce clutter */}
+                            {!isAux && (
+                                <g transform="scale(1, -1)">
+                                    <text 
+                                        x={localX} 
+                                        y={-cabY - cabH/2} 
+                                        textAnchor="middle" 
+                                        alignmentBaseline="middle" 
+                                        fontSize="40" 
+                                        fontWeight="bold" 
+                                        fill="#333"
+                                    >
+                                        {cabW}x{cabH}
+                                    </text>
+                                </g>
+                            )}
                         </g>
                     );
                 })}
@@ -129,8 +140,8 @@ export default function ElevationDrawing({ placedCabinets, roomDimensions, curre
 
                     // Filter overlapping side cabinets to show only the silhouette (max depth constraint)
                     const filterMaxDepth = (cabs: PlacedCabinet[]) => {
-                        const uppers = cabs.filter(c => c.cabinet.id.includes('gorna'));
-                        const bases = cabs.filter(c => !c.cabinet.id.includes('gorna'));
+                        const uppers = cabs.filter(c => c.cabinet.id.startsWith('gorna-') && !c.cabinet.id.includes('listwa-'));
+                        const bases = cabs.filter(c => c.cabinet.id.startsWith('dolna-'));
                         
                         const getTarget = (list: PlacedCabinet[]) => {
                             if (list.length === 0) return null;
@@ -154,17 +165,17 @@ export default function ElevationDrawing({ placedCabinets, roomDimensions, curre
                     activeCabinets.forEach(cab => {
                         const cabW = cab.cabinet.width;
                         const startX = getLocalX(cab) - cabW / 2;
-                        projectedCabinets.push({ startX, endX: startX + cabW, label: cabW, isGorna: cab.cabinet.id.includes('gorna'), uuid: cab.uuid });
+                        projectedCabinets.push({ startX, endX: startX + cabW, label: cabW, isGorna: cab.cabinet.id.startsWith('gorna-'), uuid: cab.uuid });
                     });
 
                     processedLeft.forEach(cab => {
                         const effDepth = getEffDepth(cab);
-                        projectedCabinets.push({ startX: 0, endX: effDepth, label: effDepth, isGorna: cab.cabinet.id.includes('gorna'), uuid: cab.uuid + '-l' });
+                        projectedCabinets.push({ startX: 0, endX: effDepth, label: effDepth, isGorna: cab.cabinet.id.startsWith('gorna-'), uuid: cab.uuid + '-l' });
                     });
 
                     processedRight.forEach(cab => {
                         const effDepth = getEffDepth(cab);
-                        projectedCabinets.push({ startX: wallWidth - effDepth, endX: wallWidth, label: effDepth, isGorna: cab.cabinet.id.includes('gorna'), uuid: cab.uuid + '-r' });
+                        projectedCabinets.push({ startX: wallWidth - effDepth, endX: wallWidth, label: effDepth, isGorna: cab.cabinet.id.startsWith('gorna-'), uuid: cab.uuid + '-r' });
                     });
 
                     const renderChain = (cabinets: ProjectedCabinet[], yPos: number) => {
@@ -197,7 +208,7 @@ export default function ElevationDrawing({ placedCabinets, roomDimensions, curre
                                 const cabD = getEffDepth(cab);
                                 const cabH = cab.cabinet.height;
                                 const cabY = cab.position[1];
-                                const isGorna = cab.cabinet.id.includes('gorna');
+                                const isGorna = cab.cabinet.id.startsWith('gorna-');
                                 const labelPrefix = cab.cabinet.id.endsWith('-90') ? 'szer.' : 'gł.';
                                 return (
                                     <g key={`side-l-${cab.uuid}`}>
@@ -214,7 +225,7 @@ export default function ElevationDrawing({ placedCabinets, roomDimensions, curre
                                 const cabD = getEffDepth(cab);
                                 const cabH = cab.cabinet.height;
                                 const cabY = cab.position[1];
-                                const isGorna = cab.cabinet.id.includes('gorna');
+                                const isGorna = cab.cabinet.id.startsWith('gorna-');
                                 const labelPrefix = cab.cabinet.id.endsWith('-90') ? 'szer.' : 'gł.';
                                 return (
                                     <g key={`side-r-${cab.uuid}`}>

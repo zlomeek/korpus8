@@ -23,6 +23,7 @@ interface DraggableCabinetProps {
     isLocked?: boolean;
     isPreviewMode?: boolean;
     isTechnicalView?: boolean;
+    showFrontEdges?: boolean;
 }
 
 // === COLLISION HELPERS ===
@@ -133,7 +134,8 @@ export default function DraggableCabinet({
     onContextMenu,
     isLocked,
     isPreviewMode,
-    isTechnicalView
+    isTechnicalView,
+    showFrontEdges
 }: DraggableCabinetProps) {
     const [target, setTarget] = useState<THREE.Object3D | null>(null);
     const [lastValidPos, setLastValidPos] = useState<[number, number, number]>(initialPosition);
@@ -175,7 +177,7 @@ export default function DraggableCabinet({
 
                 const roomHalfW = roomDimensions.width / 2;
                 const roomHalfZ = roomDimensions.depth / 2;
-                const SNAP = 50;
+                const SNAP = 15;
                 const LEG_H = 100;
                 const isFloating = cabinet.id.startsWith('gorna-') || cabinet.id.startsWith('blat-') || cabinet.id === 'fartuch-kuchenny' || cabinet.id === 'blenda-meblowa';
                 const h1 = isFloating ? cabinet.height : (cabinet.height + LEG_H);
@@ -193,7 +195,8 @@ export default function DraggableCabinet({
                         if (Math.abs(b.minX - (-roomHalfW)) < SNAP) wallSnapOffset = -(b.minX + roomHalfW);
                     } else if (axis === 'z') {
                         const b = getFullBounds(testPos, rotY);
-                        if (Math.abs(b.maxZ - roomHalfZ) < SNAP) wallSnapOffset = -(b.maxZ - roomHalfZ);
+                        const isCountertop = cabinet.id.startsWith('blat-');
+                        if (!isCountertop && Math.abs(b.maxZ - roomHalfZ) < SNAP) wallSnapOffset = -(b.maxZ - roomHalfZ);
                         if (Math.abs(b.minZ - (-roomHalfZ)) < SNAP) wallSnapOffset = -(b.minZ + roomHalfZ);
                     } else if (axis === 'y' && isFloating) {
                         if (Math.abs(currentVal + h1 - roomDimensions.height) < SNAP) wallSnapOffset = (roomDimensions.height - h1) - currentVal;
@@ -223,8 +226,8 @@ export default function DraggableCabinet({
                             otherRects.forEach(oRect => {
                                 const ob = getRectWorldBounds(otherPosVec, other.rotation[1], oRect);
 
-                                const xOverlap = !(myB.maxX <= ob.minX + 0.1 || ob.maxX <= myB.minX + 0.1);
-                                const zOverlap = !(myB.maxZ <= ob.minZ + 0.1 || ob.maxZ <= myB.minZ + 0.1);
+                                const xOverlap = !(myB.maxX <= ob.minX + 1.0 || ob.maxX <= myB.minX + 1.0);
+                                const zOverlap = !(myB.maxZ <= ob.minZ + 1.0 || ob.maxZ <= myB.minZ + 1.0);
 
                                 if (axis === 'x' && zOverlap) {
                                     if (yOverlapPhysics || topTouchesBottom || bottomTouchesTop) {
@@ -308,7 +311,8 @@ export default function DraggableCabinet({
                         if (bFinal.maxX > roomHalfW) finalVal -= (bFinal.maxX - roomHalfW);
                         if (bFinal.minX < -roomHalfW) finalVal += (-roomHalfW - bFinal.minX);
                     } else if (axis === 'z') {
-                        if (bFinal.maxZ > roomHalfZ) finalVal -= (bFinal.maxZ - roomHalfZ);
+                        const isCountertop = cabinet.id.startsWith('blat-');
+                        if (bFinal.maxZ > roomHalfZ && !isCountertop) finalVal -= (bFinal.maxZ - roomHalfZ);
                         if (bFinal.minZ < -roomHalfZ) finalVal += (-roomHalfZ - bFinal.minZ);
                     } else if (axis === 'y') {
                         if (finalVal + h1 > roomDimensions.height) finalVal = roomDimensions.height - h1;
@@ -503,15 +507,32 @@ export default function DraggableCabinet({
                         ovenBaseHeight={(cabinet as any).ovenBaseHeight}
                         isFullTop={(cabinet as any).isFullTop}
                         bodyColor={(cabinet as any).bodyColor || '#ffffff'}
+                        bodyDecorId={(cabinet as any).bodyDecorId}
+                        frontDecorId={(cabinet as any).frontDecorId}
                         sinkBackRimHeight={(cabinet as any).sinkBackRimHeight}
                         hasDoors={(cabinet as any).hasFronts}
                         elements={(cabinet as any).elements}
                         width2={(cabinet as any).width2}
                         leftCutType={(cabinet as any).leftCutType}
                         rightCutType={(cabinet as any).rightCutType}
+                        hoodHeight={cabinet.hoodHeight}
+                        hoodCutoutSide={(cabinet as any).hoodCutoutSide}
+                        hoodCutoutOffset={(cabinet as any).hoodCutoutOffset}
+                        hoodCutoutWidth={(cabinet as any).hoodCutoutWidth}
+                        hoodCutoutDepth={(cabinet as any).hoodCutoutDepth}
+                        hoodHoleSide={(cabinet as any).hoodHoleSide}
+                        hoodHoleOffset={(cabinet as any).hoodHoleOffset}
+                        hasHoodHoleTop={(cabinet as any).hasHoodHoleTop !== undefined ? (cabinet as any).hasHoodHoleTop : false}
+                        hasShelfHoles={(cabinet as any).hasShelfHoles}
+                        shelfHoleCount={(cabinet as any).shelfHoleCount}
+                        extendFrontDown={(cabinet as any).extendFrontDown}
+                        depthRogowa={(cabinet as any).depthRogowa}
+                        pipeSegmentsEnabled={(cabinet as any).pipeSegmentsEnabled}
                         isStaticPreview={true}
                         renderAsGroup={true}
+                        showEdges={showFrontEdges}
                     />
+
                 </group>
             </group>
         </group>
