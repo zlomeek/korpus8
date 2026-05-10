@@ -41,14 +41,14 @@ export default function DecorSelector({ onSelect, onClose, title }: DecorSelecto
           {filteredDecors.length > 0 ? (
             <>
               {/* Grupowanie po kategoriach */}
-              {['laminowana', 'lakierowana'].map(cat => {
+              {['blat', 'laminowana', 'lakierowana'].map(cat => {
                 const decorsInCategory = filteredDecors.filter(d => d.category === cat);
                 if (decorsInCategory.length === 0) return null;
                 
                 return (
                   <div key={cat} className={styles.categorySection}>
                     <h4 className={styles.categoryTitle}>
-                      {cat === 'laminowana' ? 'Płyty Laminowane' : 'Płyty Lakierowane'}
+                      {cat === 'blat' ? 'Blaty i Blendy' : (cat === 'laminowana' ? 'Płyty Laminowane' : 'Płyty Lakierowane')}
                     </h4>
                     <div className={styles.categoryGrid}>
                       {decorsInCategory.map(decor => (
@@ -58,7 +58,9 @@ export default function DecorSelector({ onSelect, onClose, title }: DecorSelecto
                           onClick={() => onSelect(decor)}
                         >
                           <div className={styles.previewContainer}>
-                            {decor.imageUrl ? (
+                            {decor.type === 'uni' && decor.color ? (
+                              <div className={styles.placeholder} style={{ backgroundColor: decor.color }}></div>
+                            ) : decor.imageUrl ? (
                               <img src={decor.thumbnailUrl} alt={decor.name} className={styles.previewImg} />
                             ) : (
                               <div className={styles.placeholder} style={{ backgroundColor: '#ffffff' }}></div>

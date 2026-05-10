@@ -107,7 +107,11 @@ export function calculateCabinet(cabinet: Cabinet, settings: PricingSettings = d
         let areaMM2 = 0;
 
         // Calculate area based on which dimensions are present
-        if (el.width && el.depth) {
+        const isFartuchOrBlenda = el.id?.includes('fartuch') || el.id?.includes('blenda') || el.id?.includes('listwa');
+
+        if (isFartuchOrBlenda && el.width && el.height) {
+            areaMM2 = w * h;
+        } else if (el.width && el.depth) {
             areaMM2 = w * d;
         } else if (el.height && el.depth) {
             areaMM2 = h * d;
@@ -139,7 +143,7 @@ export function calculateCabinet(cabinet: Cabinet, settings: PricingSettings = d
     let legsCount = 0;
     const width = cabinet.width; // master width in mm
 
-    if (cabinet.id.includes('gorna')) {
+    if (cabinet.id.includes('gorna') || cabinet.id === 'fartuch-kuchenny' || cabinet.id === 'blenda-meblowa' || cabinet.id.startsWith('blat-')) {
         legsCount = 0;
     } else if (cabinet.id === 'dolna-narozna-90') {
         legsCount = 8;
@@ -205,8 +209,20 @@ export function generateFixedElements(
     depthRogowa: boolean = false,
     pipeSegmentsEnabled?: boolean[]
 ): any[] {
-    if (cabinetId.startsWith("blat-")) {
-        return [];
+    if (cabinetId.startsWith("blat-") || cabinetId === 'blenda-meblowa' || cabinetId === 'fartuch-kuchenny' || cabinetId === 'gorna-listwa-podszafkowa' || cabinetId === 'gorna-listwa-miedzy-szafkowa') {
+        let name = "Element";
+        if (cabinetId.startsWith("blat-")) name = "Blat";
+        else if (cabinetId === "blenda-meblowa") name = "Blenda meblowa";
+        else if (cabinetId === "fartuch-kuchenny") name = "Fartuch kuchenny";
+        else if (cabinetId.includes("listwa")) name = "Listwa";
+
+        return [{
+            id: cabinetId,
+            name: name,
+            width: width,
+            height: height,
+            depth: depth
+        }];
     }
 
     const elements = [];
@@ -228,8 +244,8 @@ export function generateFixedElements(
         elements.push(
             { id: "bok-lewy", name: "Bok lewy", height: height, depth: depth },
             { id: "bok-prawy", name: "Bok prawy", height: height, depth: depth },
-            { id: "wieniec-dolny-L", name: "Wieniec dolny L-kształtny (CNC)", width: width - 18 - 20, depth: width2 - 18 - 18 }, // Skrócone o 18mm na lewe plecy, i o 20mm z lewej na prawe plecy
-            { id: "wieniec-gorny-L", name: "Wieniec górny L-kształtny (CNC)", width: width - 18 - 20, depth: width2 - 18 - 18 }, // Skrócone o 18mm na lewe plecy, i o 20mm z lewej na prawe plecy
+            { id: "wieniec-dolny", name: "Wieniec dolny", width: width - 18 - 20, depth: width2 - 18 - 18 }, // Skrócone o 18mm na lewe plecy, i o 20mm z lewej na prawe plecy
+            { id: "wieniec-gorny", name: "Wieniec górny", width: width - 18 - 20, depth: width2 - 18 - 18 }, // Skrócone o 18mm na lewe plecy, i o 20mm z lewej na prawe plecy
             { id: "plecy-lewe", name: "Plecy lewe 18mm", width: width - 18, height: height - 4 }, // Zewnętrzne wymiary pleców lewych opierające się o boki
             { id: "plecy-prawe", name: "Plecy prawe wpuszczane", width: width2 - 18 - 18 - 3, height: height - 4 }
         );
@@ -379,15 +395,16 @@ export function generateFixedElements(
             const rimWidth = width - 36;
             const cWidth = hoodCutoutWidth || (width - 76);
             const cOffset = hoodCutoutOffset !== undefined ? hoodCutoutOffset : Math.round((rimWidth - cWidth) / 2);
+            const lSpace = (hoodCutoutSide === 'left') ? cOffset : (rimWidth - cOffset - cWidth);
+            const rSpace = (hoodCutoutSide === 'right') ? cOffset : (rimWidth - cOffset - cWidth);
 
             let blendaWidth = rimWidth;
 
             if (shortenLeft) {
-                blendaWidth -= (cOffset - 18);
+                blendaWidth -= (lSpace - 18);
             }
             if (shortenRight) {
-                const rightSpace = rimWidth - cOffset - cWidth;
-                blendaWidth -= (rightSpace - 18);
+                blendaWidth -= (rSpace - 18);
             }
 
             elements.push({
@@ -649,7 +666,7 @@ export function generateFixedElements(
                     // Półka L-CNC: wycinana z kwadratu, wymiary to obwód L-kształtu (jak wieniec)
                     elements.push({
                         id: `polka-${i}${suffixId}`,
-                        name: `Półka ${i + 1} (L-CNC)${suffixName}`,
+                        name: `Półka ${i + 1}${suffixName}`,
                         width: width - 36,
                         depth: width2 - 36,
                         type: 'polka'
@@ -678,22 +695,11 @@ export function generateFixedElements(
 
         // Wyjątki dla naroznych
         if (cabinetId === 'dolna-narozna-90' || cabinetId === 'gorna-narozna-90') {
-            // Domyślnie zakładamy drzwi łamane, jeśli Para drzwi nie jest jawnie wybrana
-            const isParaDrzwi = configsToParse.includes('Para drzwi');
-            const isDrzwiLamane = configsToParse.includes('Drzwi łamane') || !isParaDrzwi;
-
-            // W szafce narożnej L (90) mamy dwoje drzwi
-            if (isDrzwiLamane) {
-                const fW_L = width2 - depth - 4;
-                const fW_P = width - depth - 4;
-                elements.push({ id: 'front-lamany-1', name: 'Front łamany (lewy)', width: fW_L, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
-                elements.push({ id: 'front-lamany-2', name: 'Front łamany (prawy)', width: fW_P, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
-            } else if (isParaDrzwi) {
-                const fW_L = width2 - depth - 4 - 18;
-                const fW_P = width - depth - 4;
-                elements.push({ id: 'front-drzwi-lewy', name: 'Front L-kształtny (lewy)', width: fW_L, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
-                elements.push({ id: 'front-drzwi-prawy', name: 'Front L-kształtny (prawy)', width: fW_P, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
-            }
+            // Dla szafek narożnych 90 (L) zawsze używamy Pary drzwi (brak łamanych)
+            const fW_L = width2 - depth - 4 - 18;
+            const fW_P = width - depth - 4;
+            elements.push({ id: 'front-drzwi-lewy', name: 'Front drzwi lewy', width: fW_L, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
+            elements.push({ id: 'front-drzwi-prawy', name: 'Front drzwi prawy', width: fW_P, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
         } else if (cabinetId === 'dolna-narozna' || cabinetId === 'gorna-narozna' || cabinetId === 'gorna-narozna-gleboka') {
             let blendaWidth = 520;
             if (cabinetId === 'gorna-narozna') blendaWidth = 350;
@@ -784,22 +790,27 @@ export function generateFixedElements(
         } else if (cabinetId === 'dolna-piekarnik') {
             // Front pod i nad piekarnikiem
             const isLoweredOven = configUnder?.includes('Obniżenie piekarnika o 1 szufladę (14 cm)');
-            const bottomSpaceForDrawers = ovenBaseHeight; // Szuflady liczymy od bazowej wysokości (nie są skracane proporcjonalnie)
-            const bottomSpaceForDoors = isLoweredOven ? (ovenBaseHeight - 140) : ovenBaseHeight; // Drzwi dopasowują się do obniżenia
+            const bottomSpaceForDoors = isLoweredOven ? (ovenBaseHeight - 140) : ovenBaseHeight; 
             const topSpaceH = height - (bottomSpaceForDoors + ovenSpaceHeight + 18 + microwaveSpaceHeight + 18);
 
             if (bottomSpaceForDoors > 0) {
                 if (configUnder?.includes('3 szuflady (2 wysokie jedna niska)')) {
-                    // Szuflady na dole
-                    const hLowSection = 140; // Niska szuflada bazowa wysokosc wneki
-                    const hHighSection = Math.floor((bottomSpaceForDrawers - hLowSection) / 2);
+                    // Szuflady na dole - dla 3 szuflad bazą jest zawsze pełna wysokość (720), bo po prostu usuwamy jedną
+                    const baseH = ovenBaseHeight || 720;
+                    const hLowSection = 140; 
+                    const hHighSection = Math.floor((baseH - hLowSection) / 2);
                     elements.push({ id: 'front-szuflada-1-piekarnik', name: 'Front szuflady (wysoka)', width: width - 4, height: hHighSection - 4, type: 'front', material: frontMaterial });
-                    elements.push({ id: 'front-szuflada-2-piekarnik', name: 'Front szuflady (wysoka)', width: width - 4, height: (bottomSpaceForDrawers - hLowSection - hHighSection) - 4, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-szuflada-2-piekarnik', name: 'Front szuflady (wysoka)', width: width - 4, height: (baseH - hLowSection - hHighSection) - 4, type: 'front', material: frontMaterial });
 
                     // Jeśli piekarnik JEST obniżony, po prostu NIE DODAJEMY górnej małej szuflady
                     if (!isLoweredOven) {
                         elements.push({ id: 'front-szuflada-3-piekarnik', name: 'Front szuflady (niska)', width: width - 4, height: hLowSection - 4, type: 'front', material: frontMaterial });
                     }
+                } else if (configUnder?.includes('2 szuflady')) {
+                    // Dla 2 szuflad bazą jest aktualna wysokość wnęki (może być obniżona)
+                    const h = Math.floor((bottomSpaceForDoors - 8) / 2);
+                    elements.push({ id: 'front-szuflada-1-piekarnik', name: 'Front szuflady', width: width - 4, height: h, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-szuflada-2-piekarnik', name: 'Front szuflady', width: width - 4, height: bottomSpaceForDoors - h - 8, type: 'front', material: frontMaterial });
                 } else if (configUnder?.some(c => c.toLowerCase().includes('drzwi'))) {
                     elements.push({ id: 'front-piekarnik-dol', name: 'Front (dół)', width: width - 4, height: bottomSpaceForDoors - 4, type: 'front', material: frontMaterial });
                 }
@@ -969,18 +980,18 @@ export function getCollisionRects(cabinet: Cabinet, excludeFronts: boolean = fal
     if (isUpperCorner) {
         const orientation = (cabinet as any).cornerOrientation || 'right';
         const blendaWidth = cabinet.id === 'gorna-narozna' ? 350 : 580;
-        
+
         const baseBox: CollisionRect = { w: cabinet.width, d: cabinet.depth, x: 0, z: 0, type: 'body' };
-        
+
         let blendaX;
         if (orientation === 'left') {
             blendaX = -cabinet.width / 2 + blendaWidth / 2;
         } else {
             blendaX = cabinet.width / 2 - blendaWidth / 2;
         }
-        
+
         const blendaBox: CollisionRect = { w: blendaWidth, d: 18, x: blendaX, z: cabinet.depth / 2 + 9, type: 'blenda' };
-        
+
         // Door front
         const doorWidth = cabinet.width - blendaWidth;
         let doorX;

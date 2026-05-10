@@ -192,7 +192,7 @@ export default function CartPanel({ placedCabinets, onClose }: CartPanelProps) {
                 }}>
                     <div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontSize: "1.2rem" }}>🛒</span>
+                            <span></span>
                             <span style={{ fontSize: "1rem", fontWeight: 700, color: "#f9fafb" }}>
                                 Wycena projektu
                             </span>
@@ -254,7 +254,7 @@ export default function CartPanel({ placedCabinets, onClose }: CartPanelProps) {
                             justifyContent: "center", height: "60%",
                             color: "#4b5563", fontSize: "0.9rem", gap: 12,
                         }}>
-                            <span style={{ fontSize: "2.5rem" }}>🪑</span>
+                            <span></span>
                             <span>Dodaj szafki do planera</span>
                         </div>
                     ) : (

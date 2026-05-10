@@ -114,6 +114,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
     });
 
     const [selectorMode, setSelectorMode] = useState<'body' | 'front' | null>(null);
+    const [isExtrasExpanded, setIsExtrasExpanded] = useState(false);
 
 
     const FRONT_MATERIALS = [
@@ -139,12 +140,12 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
 
     // Limits
     const LIMITS = {
-        width: { 
-            min: isBlenda ? 20 : (cabinet.standardWidths && cabinet.standardWidths.length > 0 ? Math.min(...cabinet.standardWidths) : 150), 
-            max: isPodszafkowa ? 3100 : (isListwa ? 2700 : (isBlenda ? 2000 : (cabinet.standardWidths && cabinet.standardWidths.length > 0 ? Math.max(...cabinet.standardWidths) : 1200))) 
+        width: {
+            min: isBlenda ? 20 : (cabinet.standardWidths && cabinet.standardWidths.length > 0 ? Math.min(...cabinet.standardWidths) : 150),
+            max: isPodszafkowa ? 3100 : (isListwa ? 2700 : (isBlenda ? 2000 : (cabinet.standardWidths && cabinet.standardWidths.length > 0 ? Math.max(...cabinet.standardWidths) : 1200)))
         },
         height: { min: isBlenda ? 20 : ((cabinet.id === 'dolna-piekarnik' || cabinet.id.startsWith('dolna-lodowka')) ? 2300 : 250), max: isBlenda ? 2600 : 2700 },
-        depth: { min: isBlenda ? 18 : 300, max: 700 }
+        depth: { min: (isBlenda || isFartuch) ? 18 : 300, max: 700 }
     };
 
     const [calculation, setCalculation] = useState(calculateCabinet(formData, settings));
@@ -188,10 +189,10 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             ...prev,
             elements: newElements
         }));
-        
+
         setCalculation(calculateCabinet({ ...formData, elements: newElements }, settings));
     }, [
-        formData.width, formData.height, formData.depth, formData.isFullTop, 
+        formData.width, formData.height, formData.depth, formData.isFullTop,
         formData.cornerOrientation, formData.frontWidth, formData.fridgeSpaceHeight,
         formData.ovenSpaceHeight, formData.microwaveSpaceHeight, formData.ovenBaseHeight,
         formData.configUnder, formData.configAbove, formData.width2, formData.hasFronts,
@@ -247,7 +248,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             if (lowerOpt.includes('blenda okapu skrócona')) {
                 const cWidth = hCutoutWidth !== undefined ? hCutoutWidth : (formData.hoodCutoutWidth || Math.max(0, width - 76));
                 const cOffset = hCutoutOffset !== undefined ? hCutoutOffset : (formData.hoodCutoutOffset !== undefined ? formData.hoodCutoutOffset : Math.round((width - 36 - cWidth) / 2));
-                
+
                 const innerWidth = width - 36;
                 const leftDist = cOffset;
                 const rightDist = innerWidth - cOffset - cWidth;
@@ -289,7 +290,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         setFormData(prev => {
             const updated = { ...prev, width2: val };
             updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, val, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
-            
+
             return updated;
         });
     };
@@ -402,7 +403,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         const isFullTop = !!e.target.checked;
         setFormData(prev => {
             const updated = { ...prev, isFullTop };
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa, updated.pipeSegmentsEnabled);
             return updated;
         });
     };
@@ -478,7 +479,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             // If turning off custom width, ensure we snap to nearest standard width
             if (!checked && cabinet.standardWidths && cabinet.standardWidths.length > 0) {
                 if (!cabinet.standardWidths.includes(updated.width)) {
-                   updated.width = cabinet.standardWidths.reduce((p, c) => Math.abs(c - updated.width) < Math.abs(p - updated.width) ? c : p);
+                    updated.width = cabinet.standardWidths.reduce((p, c) => Math.abs(c - updated.width) < Math.abs(p - updated.width) ? c : p);
                 }
             }
             if (cabinet.id === 'gorna-okapowa') {
@@ -528,8 +529,16 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
 
             if (checked) {
                 if (isDrawer && option !== 'Obniżenie piekarnika o 1 szufladę (14 cm)') {
-                    // Exclusive with Door, Shelf, Cargo, and other Drawers, BUT KEEP OBNIZENIE PIEKARNIKA
-                    newConfig = newConfig.filter(o => !o.toLowerCase().includes('drzwi') && !o.toLowerCase().includes('półk') && (!o.toLowerCase().includes('szuflad') || o === 'Obniżenie piekarnika o 1 szufladę (14 cm)') && !customOpts.includes(o));
+                    // Exclusive with Door, Shelf, Cargo, and other Drawers
+                    newConfig = newConfig.filter(o => !o.toLowerCase().includes('drzwi') && !o.toLowerCase().includes('półk') && !customOpts.includes(o));
+
+                    // Specific logic for 3 drawers vs Oven Lowering
+                    if (option.toLowerCase().includes('3 szuflady')) {
+                        newConfig = newConfig.filter(o => !o.toLowerCase().includes('szuflad') && o !== 'Obniżenie piekarnika o 1 szufladę (14 cm)');
+                    } else {
+                        newConfig = newConfig.filter(o => !o.toLowerCase().includes('szuflad') || o === 'Obniżenie piekarnika o 1 szufladę (14 cm)');
+                    }
+
                     newConfig.push(option);
                 } else if (isDoor) {
                     // Exclusive with drawers (except obnizenie piekarnika), cargo, struts and other doors
@@ -558,7 +567,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                 } else if (isCustom) {
                     // Cargo, Magic Corner, Le Mans clears everything else (including shelves)
                     newConfig = newConfig.filter(o => !customOpts.includes(o) && !o.toLowerCase().includes('drzwi') && !o.toLowerCase().includes('półk') && (!o.toLowerCase().includes('szuflad') || o === 'Obniżenie piekarnika o 1 szufladę (14 cm)'));
-                    
+
                     // Magic Corner i Le Mans zachowują się jak półka w kwestii drzwi (wymagają ich)
                     if (optLower === 'magic corner' || optLower === 'le mans') {
                         if (!newConfig.some(o => o.toLowerCase().includes('drzwi')) && !cabinet.id.startsWith('gorna-')) {
@@ -568,7 +577,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                             }
                         }
                     }
-                    
+
                     newConfig.push(option);
                 } else if (isStrut) {
                     // Mutex: Clear Door
@@ -579,6 +588,14 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                     newConfig.push(option);
                 } else if (isNawiertyPrawe) {
                     newConfig = newConfig.filter(o => o !== 'Mocowania zawiasów z lewej');
+                    newConfig.push(option);
+                } else if (option === 'Obniżenie piekarnika o 1 szufladę (14 cm)') {
+                    // Jeśli zaznaczamy obniżenie, a mamy wybrane 3 szuflady, zmieńmy na 2 szuflady
+                    const has3Drawers = newConfig.some(o => o.toLowerCase() === '3 szuflady (2 wysokie jedna niska)');
+                    if (has3Drawers) {
+                        newConfig = newConfig.filter(o => o.toLowerCase() !== '3 szuflady (2 wysokie jedna niska)');
+                        newConfig.push('2 szuflady');
+                    }
                     newConfig.push(option);
                 } else {
                     newConfig.push(option);
@@ -594,7 +611,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             }
 
             const updated = { ...prev, configUnder: newConfig };
-            
+
             // Walidacja otworów w półkach przy zmianie liczby półek
             const newShelvesCount = getShelvesCount(newConfig);
             if ((updated.shelfHoleCount || 0) > newShelvesCount) {
@@ -604,7 +621,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                 updated.hasShelfHoles = false;
             }
 
-            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, newConfig, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, newConfig, updated.configAbove, updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa, updated.pipeSegmentsEnabled);
             return updated;
         });
     };
@@ -660,7 +677,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             }
 
             const updated = { ...prev, configAbove: newConfig };
-            
+
             // Walidacja otworów w półkach przy zmianie liczby półek
             const newShelvesCount = getShelvesCount(newConfig);
             if ((updated.shelfHoleCount || 0) > newShelvesCount) {
@@ -750,12 +767,12 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             return cfg.toLowerCase().includes('z lewej') || cfg.toLowerCase().includes('z prawej');
         };
 
-        const isBlindCorner = cabinet.id === 'dolna-narozna' || cabinet.id === 'gorna-narozna' || cabinet.id === 'gorna-narozna-gleboka';
+        const isCornerCabinet = cabinet.id === 'dolna-narozna' || cabinet.id === 'gorna-narozna' || cabinet.id === 'gorna-narozna-gleboka' || cabinet.id === 'gorna-narozna-90' || cabinet.id === 'dolna-narozna-90' || cabinet.id === 'dolna-rogowa';
 
         // Sprawdzamy główną konfigurację (zwykłe szafki)
         // Dla szafek narożnych z blendą pomijamy sprawdzanie zawiasów, bo są one stałe
         // Dla szafek powyżej 600mm pomijamy, bo mają parę drzwi
-        if (!isBlindCorner && !isSimpleElement && formData.width <= 600 && hasSingleDoor(formData.configuration) && !hasHingeSide(formData.configUnder) && !hasHingeSide(formData.configuration)) {
+        if (!isCornerCabinet && !isSimpleElement && formData.width <= 600 && hasSingleDoor(formData.configuration) && !hasHingeSide(formData.configUnder) && !hasHingeSide(formData.configuration)) {
             alert("Proszę wybrać stronę mocowania zawiasów (lewa/prawa) przed dodaniem do koszyka.");
             return;
         }
@@ -765,19 +782,19 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             if (!cfg) return false;
             const options = Array.isArray(cfg) ? cfg : [cfg];
             const mainOptions = [
-                'drzwi', 'szuflad', 'siłowniki', 'para drzwi', 'drzwi łamane', 
+                'drzwi', 'szuflad', 'siłowniki', 'para drzwi', 'drzwi łamane',
                 'magic corner', 'le mans', 'cargo', 'kosz'
             ];
-            return options.some(opt => 
+            return options.some(opt =>
                 mainOptions.some(main => opt.toLowerCase().includes(main))
             );
         };
 
-        const configIsValid = 
-            isBlindCorner || 
+        const configIsValid =
+            isCornerCabinet ||
             isSimpleElement ||
-            hasPrimaryConfig(formData.configuration) || 
-            hasPrimaryConfig(formData.configUnder) || 
+            hasPrimaryConfig(formData.configuration) ||
+            hasPrimaryConfig(formData.configUnder) ||
             hasPrimaryConfig(formData.configAbove);
 
         if (!configIsValid) {
@@ -789,7 +806,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         if (cabinet.id === 'dolna-piekarnik') {
             const hasUnder = formData.configUnder && formData.configUnder.some(opt => opt.toLowerCase().includes('drzwi') || opt.toLowerCase().includes('szuflad'));
             const hasAbove = formData.configAbove && formData.configAbove.some(opt => opt.toLowerCase().includes('drzwi') || opt.toLowerCase().includes('siłownik'));
-            
+
             if (!hasUnder) {
                 alert("Proszę wybrać opcję w przestrzeni pod piekarnikiem (np. Drzwi lub Szuflady).");
                 return;
@@ -820,11 +837,11 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         // Dla szafek narożnych z blendą pomijamy sprawdzanie zawiasów
         // Dla szafki na piekarnik i lodówek pomijamy te sprawdzenia, bo mają własne zunifikowane walidacje powyżej
         const isTallRef = cabinet.id === 'dolna-piekarnik' || cabinet.id.startsWith('dolna-lodowka');
-        if (!isBlindCorner && !isTallRef && formData.width <= 600 && hasSingleDoor(formData.configUnder) && !hasHingeSide(formData.configUnder)) {
+        if (!isCornerCabinet && !isTallRef && formData.width <= 600 && hasSingleDoor(formData.configUnder) && !hasHingeSide(formData.configUnder)) {
             alert("Proszę wybrać stronę mocowania zawiasów (lewa/prawa) dla dolnych drzwi słupka.");
             return;
         }
-        if (!isBlindCorner && !isTallRef && formData.width <= 600 && hasSingleDoor(formData.configAbove) && !hasHingeSide(formData.configAbove)) {
+        if (!isCornerCabinet && !isTallRef && formData.width <= 600 && hasSingleDoor(formData.configAbove) && !hasHingeSide(formData.configAbove)) {
             alert("Proszę wybrać stronę mocowania zawiasów (lewa/prawa) dla górnych drzwi słupka.");
             return;
         }
@@ -863,7 +880,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         if (isNarrowStandard && formData.configUnder) {
             const forbiddenOptions = ['1 szuflada', '2 szuflady', '3 szuflady', '3 szuflady (2 wysokie jedna niska)'];
             const hasForbidden = forbiddenOptions.some(opt => formData.configUnder?.includes(opt));
-            
+
             if (hasForbidden) {
                 setFormData(prev => {
                     const updatedConfigUnder = prev.configUnder?.filter(o => !forbiddenOptions.includes(o)) || [];
@@ -1043,1526 +1060,1598 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                             ) : (
                                 <>
                                     <div style={{ background: '#f0f9ff', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1.5rem', border: '1px solid #bae6fd' }}>
-                                        <h3 style={{ marginTop: 0, fontSize: '1rem', marginBottom: '0.5rem' }}>Wymiary Korpusu (Master)</h3>
-                                
-                                {allowCustomWidth && !isBlenda && (
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginBottom: '1rem', padding: '0.5rem', background: '#fff', borderRadius: '0.25rem', border: '1px solid #ddd' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.isCustomWidth || false}
-                                            onChange={handleCustomWidthToggle}
-                                        />
-                                        <span style={{ fontWeight: 'bold', color: '#166534', fontSize: '0.9rem' }}>Dostosuj szerokość (Rozmiar niestandardowy +50% ceny)</span>
-                                    </label>
-                                )}
+                                        <h3 style={{ marginTop: 0, fontSize: '1rem', marginBottom: '0.5rem' }}>Wymiary szafki</h3>
 
-                                <div className={styles.grid} style={{ marginBottom: 0 }}>
-                                    <label>
-                                        Szerokość (mm)
-                                        {cabinet.standardWidths && cabinet.standardWidths.length > 0 && !formData.isCustomWidth ? (
-                                            <select
-                                                value={formData.width}
-                                                onChange={(e) => {
-                                                    const newWidth = Number(e.target.value);
-                                                    handleMasterDimChange('width', newWidth);
-                                                }}
-                                                disabled={cabinet.id === 'dolna-piekarnik'}
-                                                style={{ width: '100%', padding: '0.2rem', ...(cabinet.id === 'dolna-piekarnik' ? { backgroundColor: '#f0f0f0', cursor: 'not-allowed' } : {}) }}
-                                            >
-                                                {cabinet.standardWidths.map(w => (
-                                                    <option key={w} value={w}>{w}</option>
-                                                ))}
-                                            </select>
-                                        ) : (
-                                            <input
-                                                type="number"
-                                                min={LIMITS.width.min}
-                                                max={LIMITS.width.max}
-                                                value={formData.width}
-                                                onChange={(e) => {
-                                                    // Allow unrestricted typing, but clamp in handleBlur
-                                                    handleMasterDimChange('width', Number(e.target.value));
-                                                }}
-                                                onBlur={(e) => {
-                                                    let val = Number(e.target.value);
-                                                    if (val < LIMITS.width.min) val = LIMITS.width.min;
-                                                    if (val > LIMITS.width.max) val = LIMITS.width.max;
-                                                    if (val !== formData.width) handleMasterDimChange('width', val);
-                                                    handleBlur('width');
-                                                }}
-                                                disabled={cabinet.id === 'dolna-piekarnik' || cabinet.id.startsWith('dolna-lodowka')}
-                                                style={(cabinet.id === 'dolna-piekarnik' || cabinet.id.startsWith('dolna-lodowka')) ? { backgroundColor: '#f0f0f0', cursor: 'not-allowed', width: '100%', padding: '0.2rem' } : { width: '100%', padding: '0.2rem' }}
-                                            />
-                                        )}
-                                    </label>
-
-                                    {(cabinet.id === 'dolna-narozna-90' || cabinet.id === 'gorna-narozna-90') && (
-                                        <div style={{ marginTop: '0.5rem' }}>
-                                            <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
-                                                Szerokość Prawego Ramienia L (mm)
+                                        {allowCustomWidth && !isBlenda && (
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginBottom: '1rem', padding: '0.5rem', background: '#fff', borderRadius: '0.25rem', border: '1px solid #ddd' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={formData.isCustomWidth || false}
+                                                    onChange={handleCustomWidthToggle}
+                                                />
+                                                <span style={{ fontWeight: 'bold', color: '#166534', fontSize: '0.9rem' }}>Dostosuj szerokość (Rozmiar niestandardowy +50% ceny)</span>
                                             </label>
-                                            <select
-                                                value={formData.width2}
-                                                onChange={handleWidth2Change}
-                                                style={{ width: '100%', padding: '0.2rem' }}
-                                            >
-                                                {cabinet.id === 'gorna-narozna-90' ? (
-                                                    <>
-                                                        <option value={650}>650</option>
-                                                        <option value={750}>750</option>
-                                                        <option value={800}>800</option>
-                                                        <option value={850}>850</option>
-                                                    </>
+                                        )}
+
+                                        <div className={styles.grid} style={{ marginBottom: 0 }}>
+                                            <label>
+                                                Szerokość (mm)
+                                                {cabinet.standardWidths && cabinet.standardWidths.length > 0 && !formData.isCustomWidth ? (
+                                                    <select
+                                                        value={formData.width}
+                                                        onChange={(e) => {
+                                                            const newWidth = Number(e.target.value);
+                                                            handleMasterDimChange('width', newWidth);
+                                                        }}
+                                                        disabled={cabinet.id === 'dolna-piekarnik'}
+                                                        style={{ width: '100%', padding: '0.2rem', ...(cabinet.id === 'dolna-piekarnik' ? { backgroundColor: '#f0f0f0', cursor: 'not-allowed' } : {}) }}
+                                                    >
+                                                        {cabinet.standardWidths.map(w => (
+                                                            <option key={w} value={w}>{w}</option>
+                                                        ))}
+                                                    </select>
                                                 ) : (
-                                                    <>
-                                                        <option value={710}>710</option>
-                                                        <option value={800}>800</option>
-                                                        <option value={900}>900</option>
-                                                        <option value={1000}>1000</option>
-                                                    </>
+                                                    <input
+                                                        type="number"
+                                                        min={LIMITS.width.min}
+                                                        max={LIMITS.width.max}
+                                                        value={formData.width}
+                                                        onChange={(e) => {
+                                                            // Allow unrestricted typing, but clamp in handleBlur
+                                                            handleMasterDimChange('width', Number(e.target.value));
+                                                        }}
+                                                        onBlur={(e) => {
+                                                            let val = Number(e.target.value);
+                                                            if (val < LIMITS.width.min) val = LIMITS.width.min;
+                                                            if (val > LIMITS.width.max) val = LIMITS.width.max;
+                                                            if (val !== formData.width) handleMasterDimChange('width', val);
+                                                            handleBlur('width');
+                                                        }}
+                                                        disabled={cabinet.id === 'dolna-piekarnik' || cabinet.id.startsWith('dolna-lodowka')}
+                                                        style={(cabinet.id === 'dolna-piekarnik' || cabinet.id.startsWith('dolna-lodowka')) ? { backgroundColor: '#f0f0f0', cursor: 'not-allowed', width: '100%', padding: '0.2rem' } : { width: '100%', padding: '0.2rem' }}
+                                                    />
                                                 )}
-                                            </select>
+                                            </label>
+
+                                            {(cabinet.id === 'dolna-narozna-90' || cabinet.id === 'gorna-narozna-90') && (
+                                                <div style={{ marginTop: '0.5rem' }}>
+                                                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
+                                                        Szerokość Prawego Ramienia L (mm)
+                                                    </label>
+                                                    <select
+                                                        value={formData.width2}
+                                                        onChange={handleWidth2Change}
+                                                        style={{ width: '100%', padding: '0.2rem' }}
+                                                    >
+                                                        {cabinet.id === 'gorna-narozna-90' ? (
+                                                            <>
+                                                                <option value={650}>650</option>
+                                                                <option value={750}>750</option>
+                                                                <option value={800}>800</option>
+                                                                <option value={850}>850</option>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <option value={710}>710</option>
+                                                                <option value={800}>800</option>
+                                                                <option value={900}>900</option>
+                                                                <option value={1000}>1000</option>
+                                                            </>
+                                                        )}
+                                                    </select>
+                                                </div>
+                                            )}
+
+                                            {!isListwa && (
+                                                <label>
+                                                    Wysokość (mm)
+                                                    {cabinet.standardHeights && cabinet.standardHeights.length > 0 ? (
+                                                        <select
+                                                            value={formData.height}
+                                                            onChange={(e) => {
+                                                                const newHeight = Number(e.target.value);
+                                                                handleMasterDimChange('height', newHeight);
+                                                            }}
+                                                            style={{ width: '100%', padding: '0.2rem' }}
+                                                        >
+                                                            {cabinet.standardHeights.map(h => (
+                                                                <option key={h} value={h}>{h}</option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.2rem' }}>
+                                                            <input
+                                                                type="range"
+                                                                min={LIMITS.height.min}
+                                                                max={LIMITS.height.max}
+                                                                step={10}
+                                                                value={formData.height}
+                                                                onChange={(e) => handleMasterDimChange('height', Number(e.target.value))}
+                                                                style={{ width: '100%', cursor: 'pointer', margin: 0, padding: 0, outline: 'none' }}
+                                                            />
+                                                            <input
+                                                                type="number"
+                                                                min={LIMITS.height.min}
+                                                                max={LIMITS.height.max}
+                                                                value={formData.height}
+                                                                onChange={(e) => handleMasterDimChange('height', Number(e.target.value))}
+                                                                onBlur={() => handleBlur('height')}
+                                                                style={{ width: '100%', padding: '0.2rem' }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </label>
+                                            )}
+                                            {!isBlenda && !isFartuch ? (
+                                                <label>
+                                                    Głębokość (mm)
+                                                    {cabinet.standardDepths && cabinet.standardDepths.length > 0 ? (
+                                                        <select
+                                                            value={formData.depth}
+                                                            onChange={(e) => {
+                                                                const newDepth = Number(e.target.value);
+                                                                handleMasterDimChange('depth', newDepth);
+                                                            }}
+                                                            disabled={cabinet.lockDepth || isListwa}
+                                                            style={{ width: '100%', padding: '0.2rem', ...(cabinet.lockDepth || isListwa ? { backgroundColor: '#f0f0f0', cursor: 'not-allowed' } : {}) }}
+                                                        >
+                                                            {cabinet.standardDepths.map(d => (
+                                                                <option key={d} value={d}>{d}</option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <input
+                                                            type="number"
+                                                            min={LIMITS.depth.min}
+                                                            max={LIMITS.depth.max}
+                                                            value={formData.depth}
+                                                            onChange={(e) => handleMasterDimChange('depth', Number(e.target.value))}
+                                                            onBlur={() => handleBlur('depth')}
+                                                            disabled={cabinet.lockDepth || isListwa}
+                                                            style={cabinet.lockDepth || isListwa ? { backgroundColor: '#f0f0f0', cursor: 'not-allowed', width: '100%', padding: '0.2rem' } : { width: '100%', padding: '0.2rem' }}
+                                                        />
+                                                    )}
+                                                </label>
+                                            ) : (
+                                                <label>
+                                                    Grubość (mm)
+                                                    <input
+                                                        type="number"
+                                                        value={18}
+                                                        disabled
+                                                        style={{ width: '100%', padding: '0.2rem', backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+                                                    />
+                                                </label>
+                                            )}
+
+                                            {cabinet.id === 'dolna-standard' && (
+                                                <label style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginTop: '1.1rem' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.depthRogowa || false}
+                                                        onChange={handleDepthRogowaChange}
+                                                        style={{ width: 'auto' }}
+                                                    />
+                                                    <span style={{ fontSize: '0.8rem', lineHeight: '1.2', fontWeight: 'bold', color: '#0369a1' }}>
+                                                        Głębokość 540 (tylko dla kontynuacji szafki rogowej)
+                                                    </span>
+                                                </label>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {cabinet.id === 'dolna-lodowka' && (
+                                        <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            <div style={{ background: '#f0f9ff', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #bae6fd' }}>
+                                                <div style={{ marginBottom: '1rem' }}>
+                                                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold' }}>Wysokość szafek dolnych (mm)</label>
+                                                    <select
+                                                        value={formData.ovenBaseHeight || 720}
+                                                        onChange={handleOvenBaseHeightChange}
+                                                        style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px' }}
+                                                    >
+                                                        <option value={720}>720</option>
+                                                        <option value={760}>760</option>
+                                                        <option value={780}>780</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold' }}>
+                                                        Wysokość wnęki na lodówkę (mm)
+                                                    </label>
+                                                    <select
+                                                        value={formData.fridgeSpaceHeight}
+                                                        onChange={handleFridgeHeightChange}
+                                                        style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px' }}
+                                                    >
+                                                        <option value={1780}>1780</option>
+                                                        <option value={1940}>1940</option>
+                                                    </select>
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
 
-                                    {!isListwa && (
-                                        <label>
-                                            Wysokość (mm)
-                                            {cabinet.standardHeights && cabinet.standardHeights.length > 0 ? (
-                                                <select
-                                                    value={formData.height}
-                                                    onChange={(e) => {
-                                                        const newHeight = Number(e.target.value);
-                                                        handleMasterDimChange('height', newHeight);
-                                                    }}
-                                                    style={{ width: '100%', padding: '0.2rem' }}
-                                                >
-                                                    {cabinet.standardHeights.map(h => (
-                                                        <option key={h} value={h}>{h}</option>
-                                                    ))}
-                                                </select>
-                                            ) : (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.2rem' }}>
-                                                    <input
-                                                        type="range"
-                                                        min={LIMITS.height.min}
-                                                        max={LIMITS.height.max}
-                                                        step={10}
-                                                        value={formData.height}
-                                                        onChange={(e) => handleMasterDimChange('height', Number(e.target.value))}
-                                                        style={{ width: '100%', cursor: 'pointer', margin: 0, padding: 0, outline: 'none' }}
-                                                    />
-                                                    <input
-                                                        type="number"
-                                                        min={LIMITS.height.min}
-                                                        max={LIMITS.height.max}
-                                                        value={formData.height}
-                                                        onChange={(e) => handleMasterDimChange('height', Number(e.target.value))}
-                                                        onBlur={() => handleBlur('height')}
-                                                        style={{ width: '100%', padding: '0.2rem' }}
-                                                    />
+                                    {(cabinet.id === 'dolna-lodowka-2' || cabinet.id === 'dolna-lodowka-3' || cabinet.id === 'dolna-lodowka-4') && (
+                                        <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            <div style={{ background: '#f0f9ff', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #bae6fd' }}>
+                                                <div style={{ marginBottom: '1rem' }}>
+                                                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold' }}>
+                                                        {cabinet.id === 'dolna-lodowka-4' ? 'Wysokość podziału frontów (linii lodówki)' : 'Wysokość twojej lodówki (mm)'}
+                                                    </label>
+                                                    <select
+                                                        value={formData.fridgeSpaceHeight}
+                                                        onChange={handleFridgeHeightChange}
+                                                        style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px' }}
+                                                    >
+                                                        <option value={1780}>1780</option>
+                                                        <option value={1940}>1940</option>
+                                                    </select>
                                                 </div>
-                                            )}
-                                        </label>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold' }}>
+                                                        Wysokość szafek dolnych (mm)
+                                                    </label>
+                                                    <select
+                                                        value={formData.ovenBaseHeight || 720}
+                                                        onChange={handleOvenBaseHeightChange}
+                                                        style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px' }}
+                                                    >
+                                                        <option value={720}>720</option>
+                                                        <option value={760}>760</option>
+                                                        <option value={780}>780</option>
+                                                    </select>
+                                                </div>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginTop: '1rem' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.splitCargoFront || false}
+                                                        onChange={handleSplitCargoFrontToggle}
+                                                    />
+                                                    <span style={{ fontWeight: 'bold' }}>Podział frontu (dwa osobne fronty bazowe)</span>
+                                                </label>
+                                            </div>
+                                        </div>
                                     )}
-                                    {!isBlenda ? (
-                                        <label>
-                                            Głębokość (mm)
-                                            {cabinet.standardDepths && cabinet.standardDepths.length > 0 ? (
-                                                <select
-                                                    value={formData.depth}
-                                                    onChange={(e) => {
-                                                        const newDepth = Number(e.target.value);
-                                                        handleMasterDimChange('depth', newDepth);
-                                                    }}
-                                                    disabled={cabinet.lockDepth || isListwa}
-                                                    style={{ width: '100%', padding: '0.2rem', ...(cabinet.lockDepth || isListwa ? { backgroundColor: '#f0f0f0', cursor: 'not-allowed' } : {}) }}
-                                                >
-                                                    {cabinet.standardDepths.map(d => (
-                                                        <option key={d} value={d}>{d}</option>
-                                                    ))}
-                                                </select>
-                                            ) : (
-                                                <input
-                                                    type="number"
-                                                    min={LIMITS.depth.min}
-                                                    max={LIMITS.depth.max}
-                                                    value={formData.depth}
-                                                    onChange={(e) => handleMasterDimChange('depth', Number(e.target.value))}
-                                                    onBlur={() => handleBlur('depth')}
-                                                    disabled={cabinet.lockDepth || isListwa}
-                                                    style={cabinet.lockDepth || isListwa ? { backgroundColor: '#f0f0f0', cursor: 'not-allowed', width: '100%', padding: '0.2rem' } : { width: '100%', padding: '0.2rem' }}
-                                                />
-                                            )}
-                                        </label>
-                                    ) : (
-                                        <label>
-                                            Grubość (mm)
+
+
+                                    {(cabinet.id === 'dolna-narozna' || cabinet.id === 'gorna-narozna' || cabinet.id === 'gorna-narozna-gleboka') && (
+                                        <div style={{ marginTop: '0.5rem' }}>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
+                                                Szerokość Blendy (mm)
+                                            </label>
                                             <input
                                                 type="number"
-                                                value={18}
+                                                value={(cabinet.id as string) === 'gorna-narozna' ? 350 : (cabinet.id as string) === 'gorna-narozna-gleboka' ? 580 : 520}
                                                 disabled
                                                 style={{ width: '100%', padding: '0.2rem', backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
                                             />
-                                        </label>
-                                    )}
-                                </div>
-                            </div>
-
-                            {cabinet.id === 'dolna-lodowka' && (
-                                <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    <div style={{ background: '#f0f9ff', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #bae6fd' }}>
-                                        <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold' }}>Wysokość korpusów twojej kuchni</label>
-                                        <select
-                                            value={formData.ovenBaseHeight || 720}
-                                            onChange={handleOvenBaseHeightChange}
-                                            style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px' }}
-                                        >
-                                            <option value={720}>720</option>
-                                            <option value={760}>760</option>
-                                            <option value={780}>780</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
-                                            Wysokość wnęki na lodówkę (mm)
-                                        </label>
-                                        <select
-                                            value={formData.fridgeSpaceHeight}
-                                            onChange={handleFridgeHeightChange}
-                                            style={{ width: '100%', padding: '0.2rem' }}
-                                        >
-                                            <option value={1780}>178 cm</option>
-                                            <option value={1940}>194 cm</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            )}
-
-                            {(cabinet.id === 'dolna-lodowka-2' || cabinet.id === 'dolna-lodowka-3' || cabinet.id === 'dolna-lodowka-4') && (
-                                <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
-                                            {cabinet.id === 'dolna-lodowka-4' ? 'Wysokość podziału frontów (linii lodówki)' : 'Wysokość twojej lodówki (mm)'}
-                                        </label>
-                                        <select
-                                            value={formData.fridgeSpaceHeight}
-                                            onChange={handleFridgeHeightChange}
-                                            style={{ width: '100%', padding: '0.2rem' }}
-                                        >
-                                            <option value={1780}>178 cm</option>
-                                            <option value={1940}>194 cm</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
-                                            Wysokość szafek dolnych w twojej kuchni
-                                        </label>
-                                        <select
-                                            value={formData.ovenBaseHeight || 720}
-                                            onChange={handleOvenBaseHeightChange}
-                                            style={{ width: '100%', padding: '0.2rem' }}
-                                        >
-                                            <option value={720}>72 cm</option>
-                                            <option value={760}>76 cm</option>
-                                            <option value={780}>78 cm</option>
-                                        </select>
-                                    </div>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginTop: '0.5rem' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.splitCargoFront || false}
-                                            onChange={handleSplitCargoFrontToggle}
-                                        />
-                                        <span>Podział frontu (dwa osobne fronty bazowe)</span>
-                                    </label>
-                                </div>
-                            )}
-
-                            {cabinet.id === 'gorna-okapowa' && (
-                                <>
-                                <div style={{ marginTop: '0.5rem' }}>
-                                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
-                                        Wysokość blendy przedniej (okapu) (mm)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={formData.hoodHeight || 150}
-                                        onChange={(e) => {
-                                            const val = Number(e.target.value);
-                                            setFormData(prev => {
-                                                const updated = { ...prev, hoodHeight: val };
-                                                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, val, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
-                                                return updated;
-                                            });
-                                        }}
-                                    />
-                                </div>
-
-                                {filteredOptions.length > 0 && filteredOptions.filter(opt => opt.toLowerCase().includes('blenda okapu skrócona')).map(opt => (
-                                    <div key={opt} style={{ marginTop: '0.5rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', marginTop: '0.5rem', marginBottom: '0.2rem' }}>
+                                                Szerokość Frontu (mm) - Wyliczana automatycznie
+                                            </label>
                                             <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.includes(opt)}
-                                                onChange={(e) => handleConfigUnderChange(opt, e.target.checked)}
+                                                type="number"
+                                                value={(formData.width || ((cabinet.id as string) === 'gorna-narozna' ? 650 : 1020)) - ((cabinet.id as string) === 'gorna-narozna' ? 350 : (cabinet.id as string) === 'gorna-narozna-gleboka' ? 580 : 620)} // Width - blenda (350 or 580 or 520+100)
+                                                disabled
+                                                style={{ width: '100%', padding: '0.2rem', backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
                                             />
-                                            {opt}
-                                        </label>
-                                    </div>
-                                ))}
+                                        </div>
+                                    )}
 
-                                <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                    <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', color: '#1e293b' }}>Konfiguracja wycięcia prostokątnego</h4>
-                                    <div className={styles.grid}>
-                                        <label>
-                                            Strona otworu
-                                            <select
-                                                value={formData.hoodCutoutSide || 'left'}
-                                                onChange={(e) => {
-                                                    const val = e.target.value as 'left' | 'right';
-                                                    setFormData(prev => {
-                                                        const updated = { ...prev, hoodCutoutSide: val };
-                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, val, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
-                                                        return updated;
-                                                    });
+
+                                    {(allowFullTopOption || cabinet.id.startsWith('gorna-') || ['dolna-narozna', 'gorna-narozna', 'gorna-narozna-gleboka', 'dolna-rogowa'].includes(cabinet.id)) && (
+                                        <div style={{ marginTop: '1.5rem' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsExtrasExpanded(!isExtrasExpanded)}
+                                                style={{
+                                                    width: '100%',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    padding: '0.8rem 1rem',
+                                                    background: '#f8fafc',
+                                                    border: '1px solid #e2e8f0',
+                                                    borderRadius: isExtrasExpanded ? '8px 8px 0 0' : '8px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.9rem',
+                                                    fontWeight: 'bold',
+                                                    color: '#1e293b',
+                                                    transition: 'all 0.2s'
                                                 }}
                                             >
-                                                <option value="left">Lewa</option>
-                                                <option value="right">Prawa</option>
-                                            </select>
-                                        </label>
-                                        <label>
-                                            Odsunięcie (mm)
-                                            <input
-                                                type="number"
-                                                min={20}
-                                                value={formData.hoodCutoutOffset !== undefined ? formData.hoodCutoutOffset : Math.round((formData.width - 36 - (formData.hoodCutoutWidth || Math.max(0, formData.width - 76))) / 2)}
-                                                onChange={(e) => {
-                                                    const maxOffset = formData.width - 56 - (formData.hoodCutoutWidth || 500);
-                                                    const val = Math.min(Math.max(20, Number(e.target.value)), maxOffset);
-                                                    setFormData(prev => {
-                                                        const updated = { ...prev, hoodCutoutOffset: val };
-                                                        const validOptions = getFilteredOptions(updated.width, updated.hoodCutoutWidth, val);
-                                                        if (updated.configUnder) {
-                                                            updated.configUnder = updated.configUnder.filter(opt => {
-                                                                if (cabinet.configurationOptions?.includes(opt)) {
-                                                                    return validOptions.includes(opt);
-                                                                }
-                                                                return true;
-                                                            });
-                                                        }
-                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, val, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
-                                                        return updated;
-                                                    });
-                                                }}
-                                            />
-                                        </label>
-                                    </div>
-                                    <div className={styles.grid} style={{ marginTop: '0.5rem' }}>
-                                        <label>
-                                            Szerokość (mm)
-                                            <input
-                                                type="number"
-                                                value={formData.hoodCutoutWidth || Math.max(0, formData.width - 76)}
-                                                onChange={(e) => {
-                                                    const maxWidth = formData.width - 56 - (formData.hoodCutoutOffset || 20);
-                                                    const val = Math.min(Number(e.target.value), maxWidth);
-                                                    setFormData(prev => {
-                                                        const updated = { ...prev, hoodCutoutWidth: val };
-                                                        const validOptions = getFilteredOptions(updated.width, val, updated.hoodCutoutOffset);
-                                                        if (updated.configUnder) {
-                                                            updated.configUnder = updated.configUnder.filter(opt => {
-                                                                if (cabinet.configurationOptions?.includes(opt)) {
-                                                                    return validOptions.includes(opt);
-                                                                }
-                                                                return true;
-                                                            });
-                                                        }
-                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, val, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
-                                                        return updated;
-                                                    });
-                                                }}
-                                            />
-                                        </label>
-                                        <label>
-                                            Głębokość (mm)
-                                            <input
-                                                type="number"
-                                                max={formData.depth - 58}
-                                                value={formData.hoodCutoutDepth || (formData.depth - 58)}
-                                                onChange={(e) => {
-                                                    const maxDepth = formData.depth - 58;
-                                                    const val = Math.min(Number(e.target.value), maxDepth);
-                                                    setFormData(prev => {
-                                                        const updated = { ...prev, hoodCutoutDepth: val };
-                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, val, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
-                                                        return updated;
-                                                    });
-                                                }}
-                                            />
-                                        </label>
-                                    </div>
-                                </div>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    Konfiguracja szafki
+                                                </span>
+                                                <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                                    {isExtrasExpanded ? '▲' : '▼'}
+                                                </span>
+                                            </button>
 
-                                <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                        <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b' }}>Konfiguracja otworu w górnym wieńcu</h4>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={!!formData.hasHoodHoleTop}
-                                                onChange={(e) => {
-                                                    const val = e.target.checked;
-                                                    setFormData(prev => {
-                                                        const updated = { ...prev, hasHoodHoleTop: val };
-                                                        
-                                                        // Ustaw domyślnie na środku po włączeniu
-                                                        if (val) {
-                                                            // Odsunięcie jest liczone od krawędzi wieńca, wieniec ma szerokość (width - 36)
-                                                            let centerOffset = Math.round((updated.width - 36) / 2);
-                                                            const maxOffset = updated.width - 131; // limits logic unchanged
-                                                            centerOffset = Math.min(Math.max(95, centerOffset), maxOffset);
-                                                            updated.hoodHoleOffset = centerOffset;
-                                                            updated.hoodHoleSide = 'left';
-                                                        }
+                                            {isExtrasExpanded && (
+                                                <div style={{
+                                                    padding: '1rem',
+                                                    background: '#fff',
+                                                    border: '1px solid #e2e8f0',
+                                                    borderTop: 'none',
+                                                    borderBottomLeftRadius: '8px',
+                                                    borderBottomRightRadius: '8px',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '1rem'
+                                                }}>
+                                                    {cabinet.id === 'gorna-okapowa' && (
+                                                        <>
+                                                            <div style={{ marginTop: '0.5rem' }}>
+                                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
+                                                                    Wysokość blendy przedniej (okapu) (mm)
+                                                                </label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={formData.hoodHeight || 150}
+                                                                    onChange={(e) => {
+                                                                        const val = Number(e.target.value);
+                                                                        setFormData(prev => {
+                                                                            const updated = { ...prev, hoodHeight: val };
+                                                                            updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, val, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                                            return updated;
+                                                                        });
+                                                                    }}
+                                                                />
+                                                            </div>
 
-                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, val, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
-                                                        return updated;
-                                                    });
-                                                }}
-                                            />
-                                            Włącz otwór w górnym wieńcu
-                                        </label>
-                                    </div>
-                                    <div className={styles.grid} style={{ opacity: formData.hasHoodHoleTop ? 1 : 0.5, pointerEvents: formData.hasHoodHoleTop ? 'auto' : 'none' }}>
-                                        <label>
-                                            Strona otworu okrągłego
-                                            <select
-                                                value={formData.hoodHoleSide || 'left'}
-                                                onChange={(e) => {
-                                                    const val = e.target.value as 'left' | 'right';
-                                                    setFormData(prev => {
-                                                        const updated = { ...prev, hoodHoleSide: val };
-                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, val, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
-                                                        return updated;
-                                                    });
-                                                }}
-                                            >
-                                                <option value="left">Lewa</option>
-                                                <option value="right">Prawa</option>
-                                            </select>
-                                        </label>
-                                        <label>
-                                            Odsunięcie (okrągły) (mm)
-                                            <input
-                                                type="number"
-                                                min={95}
-                                                max={formData.width - 131}
-                                                value={formData.hoodHoleOffset || 95}
-                                                onChange={(e) => {
-                                                    const maxOffset = formData.width - 131;
-                                                    const val = Math.min(Math.max(95, Number(e.target.value)), maxOffset);
-                                                    setFormData(prev => {
-                                                        const updated = { ...prev, hoodHoleOffset: val };
-                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, val, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
-                                                        return updated;
-                                                    });
-                                                }}
-                                            />
-                                        </label>
-                                    </div>
-                                </div>
-                                <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                        <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b' }}>Otwory w półkach (pod rurę fi 150)</h4>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', opacity: selectedShelvesCount === 0 ? 0.5 : 1 }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={!!formData.hasShelfHoles}
-                                                disabled={selectedShelvesCount === 0}
-                                                onChange={(e) => {
-                                                    const val = e.target.checked;
-                                                    setFormData(prev => {
-                                                        const updated = { ...prev, hasShelfHoles: val };
-                                                        // Inicjalizacja liczby otworów na 1 jeśli włączamy, lub na max jeśli mniejsza
-                                                        if (val && (updated.shelfHoleCount || 0) === 0) {
-                                                            updated.shelfHoleCount = Math.min(1, selectedShelvesCount);
-                                                        }
-                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, val, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
-                                                        return updated;
-                                                    });
-                                                }}
-                                            />
-                                            Włącz otwory w półkach {selectedShelvesCount === 0 && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>(wymaga wybrania półek)</span>}
-                                        </label>
-                                    </div>
-                                    {formData.hasShelfHoles && selectedShelvesCount > 0 && (
-                                        <label style={{ display: 'block', fontSize: '0.85rem' }}>
-                                            Liczba półek z otworem (maksymalnie {selectedShelvesCount})
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                max={selectedShelvesCount}
-                                                value={formData.shelfHoleCount || 0}
-                                                onChange={(e) => {
-                                                    const val = Math.min(Number(e.target.value), selectedShelvesCount);
-                                                    setFormData(prev => {
-                                                        const updated = { ...prev, shelfHoleCount: val };
-                                                        updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, val, updated.extendFrontDown, updated.depthRogowa);
-                                                        return updated;
-                                                    });
-                                                }}
-                                                style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px', marginTop: '0.4rem' }}
-                                            />
-                                        </label>
+
+
+                                                            <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                                                <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', color: '#1e293b' }}>Konfiguracja wycięcia prostokątnego</h4>
+                                                                <div className={styles.grid}>
+                                                                    <label>
+                                                                        Strona otworu
+                                                                        <select
+                                                                            value={formData.hoodCutoutSide || 'left'}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.value as 'left' | 'right';
+                                                                                setFormData(prev => {
+                                                                                    const updated = { ...prev, hoodCutoutSide: val };
+                                                                                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, val, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                                                    return updated;
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            <option value="left">Lewa</option>
+                                                                            <option value="right">Prawa</option>
+                                                                        </select>
+                                                                    </label>
+                                                                    <label>
+                                                                        Odsunięcie (mm)
+                                                                        <input
+                                                                            type="number"
+                                                                            min={20}
+                                                                            value={formData.hoodCutoutOffset !== undefined ? formData.hoodCutoutOffset : Math.round((formData.width - 36 - (formData.hoodCutoutWidth || Math.max(0, formData.width - 76))) / 2)}
+                                                                            onChange={(e) => {
+                                                                                const maxOffset = formData.width - 56 - (formData.hoodCutoutWidth || 500);
+                                                                                const val = Math.min(Math.max(20, Number(e.target.value)), maxOffset);
+                                                                                setFormData(prev => {
+                                                                                    const updated = { ...prev, hoodCutoutOffset: val };
+                                                                                    const validOptions = getFilteredOptions(updated.width, updated.hoodCutoutWidth, val);
+                                                                                    if (updated.configUnder) {
+                                                                                        updated.configUnder = updated.configUnder.filter(opt => {
+                                                                                            if (cabinet.configurationOptions?.includes(opt)) {
+                                                                                                return validOptions.includes(opt);
+                                                                                            }
+                                                                                            return true;
+                                                                                        });
+                                                                                    }
+                                                                                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, val, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                                                    return updated;
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                    </label>
+                                                                </div>
+                                                                <div className={styles.grid} style={{ marginTop: '0.5rem' }}>
+                                                                    <label>
+                                                                        Szerokość (mm)
+                                                                        <input
+                                                                            type="number"
+                                                                            value={formData.hoodCutoutWidth || Math.max(0, formData.width - 76)}
+                                                                            onChange={(e) => {
+                                                                                const maxWidth = formData.width - 56 - (formData.hoodCutoutOffset || 20);
+                                                                                const val = Math.min(Number(e.target.value), maxWidth);
+                                                                                setFormData(prev => {
+                                                                                    const updated = { ...prev, hoodCutoutWidth: val };
+                                                                                    const validOptions = getFilteredOptions(updated.width, val, updated.hoodCutoutOffset);
+                                                                                    if (updated.configUnder) {
+                                                                                        updated.configUnder = updated.configUnder.filter(opt => {
+                                                                                            if (cabinet.configurationOptions?.includes(opt)) {
+                                                                                                return validOptions.includes(opt);
+                                                                                            }
+                                                                                            return true;
+                                                                                        });
+                                                                                    }
+                                                                                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, val, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                                                    return updated;
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                    </label>
+                                                                    <label>
+                                                                        Głębokość (mm)
+                                                                        <input
+                                                                            type="number"
+                                                                            max={formData.depth - 58}
+                                                                            value={formData.hoodCutoutDepth || (formData.depth - 58)}
+                                                                            onChange={(e) => {
+                                                                                const maxDepth = formData.depth - 58;
+                                                                                const val = Math.min(Number(e.target.value), maxDepth);
+                                                                                setFormData(prev => {
+                                                                                    const updated = { ...prev, hoodCutoutDepth: val };
+                                                                                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, val, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                                                    return updated;
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                    </label>
+                                                                </div>
+
+                                                                {/* Opcje skracania blendy pojawiające się zależnie od miejsca */}
+                                                                {filteredOptions.filter(opt => opt.toLowerCase().includes('blenda okapu skrócona')).length > 0 && (
+                                                                    <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                                        {filteredOptions.filter(opt => opt.toLowerCase().includes('blenda okapu skrócona')).map(opt => (
+                                                                            <div key={opt} style={{ padding: '0.8rem', background: '#f0f9ff', borderRadius: '6px', border: '1px solid #bae6fd' }}>
+                                                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', color: '#0369a1' }}>
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={formData.configUnder?.includes(opt)}
+                                                                                        onChange={(e) => handleConfigUnderChange(opt, e.target.checked)}
+                                                                                    />
+                                                                                    {opt}
+                                                                                </label>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                                    <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b' }}>Konfiguracja otworu w górnym wieńcu</h4>
+                                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={!!formData.hasHoodHoleTop}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.checked;
+                                                                                setFormData(prev => {
+                                                                                    const updated = { ...prev, hasHoodHoleTop: val };
+
+                                                                                    // Ustaw domyślnie na środku po włączeniu
+                                                                                    if (val) {
+                                                                                        // Odsunięcie jest liczone od krawędzi wieńca, wieniec ma szerokość (width - 36)
+                                                                                        let centerOffset = Math.round((updated.width - 36) / 2);
+                                                                                        const maxOffset = updated.width - 131; // limits logic unchanged
+                                                                                        centerOffset = Math.min(Math.max(95, centerOffset), maxOffset);
+                                                                                        updated.hoodHoleOffset = centerOffset;
+                                                                                        updated.hoodHoleSide = 'left';
+                                                                                    }
+
+                                                                                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, val, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                                                    return updated;
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                        Włącz otwór w górnym wieńcu
+                                                                    </label>
+                                                                </div>
+                                                                <div className={styles.grid} style={{ opacity: formData.hasHoodHoleTop ? 1 : 0.5, pointerEvents: formData.hasHoodHoleTop ? 'auto' : 'none' }}>
+                                                                    <label>
+                                                                        Strona otworu okrągłego
+                                                                        <select
+                                                                            value={formData.hoodHoleSide || 'left'}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.value as 'left' | 'right';
+                                                                                setFormData(prev => {
+                                                                                    const updated = { ...prev, hoodHoleSide: val };
+                                                                                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, val, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                                                    return updated;
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            <option value="left">Lewa</option>
+                                                                            <option value="right">Prawa</option>
+                                                                        </select>
+                                                                    </label>
+                                                                    <label>
+                                                                        Odsunięcie (okrągły) (mm)
+                                                                        <input
+                                                                            type="number"
+                                                                            min={95}
+                                                                            max={formData.width - 131}
+                                                                            value={formData.hoodHoleOffset || 95}
+                                                                            onChange={(e) => {
+                                                                                const maxOffset = formData.width - 131;
+                                                                                const val = Math.min(Math.max(95, Number(e.target.value)), maxOffset);
+                                                                                setFormData(prev => {
+                                                                                    const updated = { ...prev, hoodHoleOffset: val };
+                                                                                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, val, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                                                    return updated;
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                                    <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b' }}>Otwory w półkach (pod rurę fi 150)</h4>
+                                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', opacity: selectedShelvesCount === 0 ? 0.5 : 1 }}>
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={!!formData.hasShelfHoles}
+                                                                            disabled={selectedShelvesCount === 0}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.checked;
+                                                                                setFormData(prev => {
+                                                                                    const updated = { ...prev, hasShelfHoles: val };
+                                                                                    // Inicjalizacja liczby otworów na 1 jeśli włączamy, lub na max jeśli mniejsza
+                                                                                    if (val && (updated.shelfHoleCount || 0) === 0) {
+                                                                                        updated.shelfHoleCount = Math.min(1, selectedShelvesCount);
+                                                                                    }
+                                                                                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, val, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa);
+                                                                                    return updated;
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                        Włącz otwory w półkach {selectedShelvesCount === 0 && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>(wymaga wybrania półek)</span>}
+                                                                    </label>
+                                                                </div>
+                                                                {formData.hasShelfHoles && selectedShelvesCount > 0 && (
+                                                                    <label style={{ display: 'block', fontSize: '0.85rem' }}>
+                                                                        Liczba półek z otworem (maksymalnie {selectedShelvesCount})
+                                                                        <input
+                                                                            type="number"
+                                                                            min={0}
+                                                                            max={selectedShelvesCount}
+                                                                            value={formData.shelfHoleCount || 0}
+                                                                            onChange={(e) => {
+                                                                                const val = Math.min(Number(e.target.value), selectedShelvesCount);
+                                                                                setFormData(prev => {
+                                                                                    const updated = { ...prev, shelfHoleCount: val };
+                                                                                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, val, updated.extendFrontDown, updated.depthRogowa, updated.pipeSegmentsEnabled);
+                                                                                    return updated;
+                                                                                });
+                                                                            }}
+                                                                            style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px', marginTop: '0.4rem' }}
+                                                                        />
+                                                                    </label>
+                                                                )}
+                                                            </div>
+                                                            {/* Zabudowa komina per segment */}
+                                                            {(() => {
+                                                                const segCount = selectedShelvesCount + 1;
+                                                                const enabled: boolean[] = formData.pipeSegmentsEnabled || Array(segCount).fill(false);
+                                                                // Upewnij się że tablica ma właściwą długość i domyślnie jest false
+                                                                const normalizedEnabled = Array.from({ length: segCount }, (_, i) => enabled[i] === true);
+                                                                return (
+                                                                    <div style={{ marginTop: '1rem', padding: '1rem', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #86efac' }}>
+                                                                        <h4 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', color: '#15803d' }}>Zabudowa komina — wybór segmentów</h4>
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                                                            {normalizedEnabled.map((isOn, i) => (
+                                                                                <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={isOn}
+                                                                                        onChange={(e) => {
+                                                                                            const newEnabled = [...normalizedEnabled];
+                                                                                            newEnabled[i] = e.target.checked;
+                                                                                            setFormData(prev => {
+                                                                                                const updated = { ...prev, pipeSegmentsEnabled: newEnabled };
+                                                                                                updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa, newEnabled);
+                                                                                                return updated;
+                                                                                            });
+                                                                                        }}
+                                                                                    />
+                                                                                    Segment {i + 1} (komin)
+                                                                                </label>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </>
+                                                    )}
+
+                                                    {allowFullTopOption && (
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', fontSize: '0.95rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.isFullTop || false}
+                                                                onChange={handleFullTopChange}
+                                                                style={{ width: '18px', height: '18px' }}
+                                                            />
+                                                            <span style={{ color: '#334155' }}>Pełny wieniec górny (płyta 18mm)</span>
+                                                        </label>
+                                                    )}
+
+                                                    {cabinet.id.startsWith('gorna-') && (
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', fontSize: '0.95rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.extendFrontDown || false}
+                                                                onChange={handleExtendFrontDownChange}
+                                                                style={{ width: '18px', height: '18px' }}
+                                                            />
+                                                            <span style={{ color: '#334155' }}>Przedłużenie frontu w dół o 20mm</span>
+                                                        </label>
+                                                    )}
+
+                                                    {(cabinet.id === 'dolna-narozna' || cabinet.id === 'gorna-narozna' || cabinet.id === 'gorna-narozna-gleboka' || cabinet.id === 'dolna-rogowa') && (
+                                                        <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>
+                                                                Strona szafki (Położenie blendy)
+                                                            </label>
+                                                            <div style={{ display: 'flex', gap: '1.5rem' }}>
+                                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+                                                                    <input
+                                                                        type="radio"
+                                                                        name="cornerOrientation"
+                                                                        value="right"
+                                                                        checked={formData.cornerOrientation === 'right'}
+                                                                        onChange={handleOrientationChange}
+                                                                    />
+                                                                    <span style={{ color: '#334155' }}>Prawa (Standard)</span>
+                                                                </label>
+                                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+                                                                    <input
+                                                                        type="radio"
+                                                                        name="cornerOrientation"
+                                                                        value="left"
+                                                                        checked={formData.cornerOrientation === 'left'}
+                                                                        onChange={handleOrientationChange}
+                                                                    />
+                                                                    <span style={{ color: '#334155' }}>Lewa</span>
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
-                                </div>
-                                {/* Zabudowa komina per segment */}
-                                {selectedShelvesCount > 0 && (() => {
-                                    const segCount = selectedShelvesCount + 1;
-                                    const enabled: boolean[] = formData.pipeSegmentsEnabled || Array(segCount).fill(false);
-                                    // Upewnij się że tablica ma właściwą długość i domyślnie jest false
-                                    const normalizedEnabled = Array.from({ length: segCount }, (_, i) => enabled[i] === true);
-                                    return (
-                                        <div style={{ marginTop: '1rem', padding: '1rem', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #86efac' }}>
-                                            <h4 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', color: '#15803d' }}>Zabudowa komina — wybór segmentów</h4>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                                {normalizedEnabled.map((isOn, i) => (
-                                                    <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+
+                                    <div style={{ marginTop: '1rem' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                                            Materiały
+                                        </label>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            {/* Rząd 1: Materiał Korpusu i Toggle Frontów */}
+                                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'stretch' }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectorMode('body')}
+                                                        style={{
+                                                            width: '100%',
+                                                            height: '100%',
+                                                            padding: '0.8rem',
+                                                            background: '#fff',
+                                                            border: '1px solid #ddd',
+                                                            borderRadius: '8px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '12px',
+                                                            cursor: 'pointer',
+                                                            textAlign: 'left',
+                                                            transition: 'border-color 0.2s'
+                                                        }}
+                                                    >
+                                                        <div style={{
+                                                            width: '32px',
+                                                            height: '32px',
+                                                            borderRadius: '4px',
+                                                            border: '1px solid #eee',
+                                                            overflow: 'hidden',
+                                                            flexShrink: 0,
+                                                            background: decors.find(d => d.id === formData.bodyDecorId)?.imageUrl ? `url(${decors.find(d => d.id === formData.bodyDecorId)?.thumbnailUrl}) center/cover` : '#ffffff'
+                                                        }} />
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Materiał korpusu</div>
+                                                            <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{decors.find(d => d.id === formData.bodyDecorId)?.name || 'Nie wybrano'}</div>
+                                                        </div>
+                                                        <span style={{ color: '#94a3b8' }}>&rarr;</span>
+                                                    </button>
+                                                </div>
+
+                                                {!isBlenda && (
+                                                    <div style={{ flex: 1 }}>
+                                                        <label style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '12px',
+                                                            height: '100%',
+                                                            padding: '0.8rem',
+                                                            background: '#fff',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid #ddd',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s',
+                                                            boxSizing: 'border-box'
+                                                        }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={formData.hasFronts || false}
+                                                                    onChange={handleFormFrontsToggle}
+                                                                    style={{
+                                                                        width: '20px',
+                                                                        height: '20px',
+                                                                        cursor: 'pointer',
+                                                                        margin: 0
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <div style={{ flex: 1 }}>
+                                                                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: formData.hasFronts ? '#0369a1' : '#334155' }}>
+                                                                    Fronty zewnętrzne
+                                                                </div>
+                                                            </div>
+                                                        </label>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Rząd 2: Materiał Frontów (jeśli włączone) */}
+                                            {formData.hasFronts && (
+                                                <div style={{ paddingLeft: '1rem', borderLeft: '3px solid #bae6fd' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectorMode('front')}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '0.8rem',
+                                                            background: '#fff',
+                                                            border: '1px solid #ddd',
+                                                            borderRadius: '8px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '12px',
+                                                            cursor: 'pointer',
+                                                            textAlign: 'left',
+                                                            transition: 'border-color 0.2s'
+                                                        }}
+                                                    >
+                                                        <div style={{
+                                                            width: '32px',
+                                                            height: '32px',
+                                                            borderRadius: '4px',
+                                                            border: '1px solid #eee',
+                                                            overflow: 'hidden',
+                                                            flexShrink: 0,
+                                                            background: decors.find(d => d.id === formData.frontDecorId)?.imageUrl ? `url(${decors.find(d => d.id === formData.frontDecorId)?.thumbnailUrl}) center/cover` : '#ffffff'
+                                                        }} />
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Materiał frontów</div>
+                                                            <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{decors.find(d => d.id === formData.frontDecorId)?.name || 'Nie wybrano'}</div>
+                                                        </div>
+                                                        <span style={{ color: '#94a3b8' }}>&rarr;</span>
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {cabinet.id.startsWith('dolna-lodowka') && (
+                                        <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+
+                                            {/* --- 1. Główna konfiguracja nawiertów (Przestrzeń lodówki) --- */}
+                                            <div style={{ padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                                <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#444' }}>
+                                                    Główna konfiguracja nawiertów
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem', opacity: ((cabinet.id !== 'dolna-lodowka-3' && cabinet.id !== 'dolna-lodowka-4') && formData.configAbove?.includes('Siłowniki')) ? 0.5 : 1 }}>
                                                         <input
                                                             type="checkbox"
-                                                            checked={isOn}
-                                                            onChange={(e) => {
-                                                                const newEnabled = [...normalizedEnabled];
-                                                                newEnabled[i] = e.target.checked;
-                                                                setFormData(prev => {
-                                                                    const updated = { ...prev, pipeSegmentsEnabled: newEnabled };
-                                                                    updated.elements = generateFixedElements(updated.width, updated.height, updated.depth, updated.isFullTop, updated.configuration, cabinet.id, updated.cornerOrientation, updated.frontWidth, updated.fridgeSpaceHeight, updated.ovenSpaceHeight, updated.configUnder || [], updated.configAbove || [], updated.microwaveSpaceHeight, updated.ovenBaseHeight, updated.width2, updated.hasFronts, updated.frontMaterial, updated.splitCargoFront, updated.hoodHeight, updated.hoodCutoutSide, updated.hoodCutoutOffset, updated.hoodCutoutWidth, updated.hoodCutoutDepth, updated.hoodHoleSide, updated.hoodHoleOffset, updated.hasHoodHoleTop, updated.hasShelfHoles, updated.shelfHoleCount, updated.extendFrontDown, updated.depthRogowa, newEnabled);
-                                                                    return updated;
-                                                                });
-                                                            }}
+                                                            checked={formData.configUnder?.includes('Mocowania zawiasów z lewej')}
+                                                            onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z lewej', e.target.checked)}
+                                                            disabled={(cabinet.id !== 'dolna-lodowka-3' && cabinet.id !== 'dolna-lodowka-4') && formData.configAbove?.includes('Siłowniki')}
                                                         />
-                                                        Segment {i + 1} (komin)
+                                                        Mocowania zawiasów z lewej
                                                     </label>
-                                                ))}
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem', opacity: ((cabinet.id !== 'dolna-lodowka-3' && cabinet.id !== 'dolna-lodowka-4') && formData.configAbove?.includes('Siłowniki')) ? 0.5 : 1 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('Mocowania zawiasów z prawej')}
+                                                            onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z prawej', e.target.checked)}
+                                                            disabled={(cabinet.id !== 'dolna-lodowka-3' && cabinet.id !== 'dolna-lodowka-4') && formData.configAbove?.includes('Siłowniki')}
+                                                        />
+                                                        Mocowania zawiasów z prawej
+                                                    </label>
+                                                </div>
                                             </div>
+
+                                            {/* --- 2. Przestrzeń nad lodówką (configAbove) --- */}
+                                            <div style={{ padding: '0.5rem', background: '#eef6ff', borderRadius: '4px', border: '1px solid #cce0ff' }}>
+                                                <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#0056b3' }}>
+                                                    Konfiguracja nawiertów (Przestrzeń nad {cabinet.id === 'dolna-lodowka-4' ? 'półkami' : cabinet.id === 'dolna-lodowka-3' ? 'szufladami wewnętrznymi' : cabinet.id === 'dolna-lodowka-2' ? 'cargo' : 'lodówką'})
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configAbove?.some(o => o.toLowerCase().includes('drzwi'))}
+                                                            onChange={(e) => handleConfigAboveChange('Drzwi', e.target.checked)}
+                                                        />
+                                                        Drzwi
+                                                    </label>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: blockActuatorsFridge ? 0.4 : 1 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configAbove?.includes('Siłowniki')}
+                                                            onChange={(e) => handleConfigAboveChange('Siłowniki', e.target.checked)}
+                                                            disabled={blockActuatorsFridge}
+                                                        />
+                                                        Siłowniki
+                                                        {blockActuatorsFridge && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(wymaga frontu ≤ 600 mm)</span>}
+                                                    </label>
+                                                    <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: (formData.configAbove?.some(o => o.toLowerCase().includes('drzwi')) || formData.configAbove?.includes('Siłowniki')) ? 1 : 0.5 }}>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configAbove?.includes('1 półka')}
+                                                                onChange={(e) => handleConfigAboveChange('1 półka', e.target.checked)}
+                                                                disabled={!(formData.configAbove?.some(o => o.toLowerCase().includes('drzwi')) || formData.configAbove?.includes('Siłowniki'))}
+                                                            />
+                                                            1 Półka
+                                                        </label>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: blockTwoShelvesFridge ? 0.4 : 1 }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configAbove?.includes('2 półki')}
+                                                                onChange={(e) => handleConfigAboveChange('2 półki', e.target.checked)}
+                                                                disabled={!(formData.configAbove?.some(o => o.toLowerCase().includes('drzwi')) || formData.configAbove?.includes('Siłowniki')) || blockTwoShelvesFridge}
+                                                            />
+                                                            2 Półki
+                                                            {blockTwoShelvesFridge && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(wymaga wnęki nad {cabinet.id === 'dolna-lodowka-4' ? 'półkami' : cabinet.id === 'dolna-lodowka-3' ? 'szufladami wewnętrznymi' : cabinet.id === 'dolna-lodowka-2' ? 'cargo' : 'lodówką'} &gt; 60 cm)</span>}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                         </div>
-                                    );
-                                })()}
-                                </>
-                            )}
+                                    )}
 
-                            {(cabinet.id === 'dolna-narozna' || cabinet.id === 'gorna-narozna' || cabinet.id === 'gorna-narozna-gleboka') && (
-                                <div style={{ marginTop: '0.5rem' }}>
-                                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
-                                        Szerokość Blendy (mm)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={(cabinet.id as string) === 'gorna-narozna' ? 350 : (cabinet.id as string) === 'gorna-narozna-gleboka' ? 580 : 520}
-                                        disabled
-                                        style={{ width: '100%', padding: '0.2rem', backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
-                                    />
-                                    <label style={{ display: 'block', fontSize: '0.85rem', marginTop: '0.5rem', marginBottom: '0.2rem' }}>
-                                        Szerokość Frontu (mm) - Wyliczana automatycznie
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={(formData.width || ((cabinet.id as string) === 'gorna-narozna' ? 650 : 1020)) - ((cabinet.id as string) === 'gorna-narozna' ? 350 : (cabinet.id as string) === 'gorna-narozna-gleboka' ? 580 : 620)} // Width - blenda (350 or 580 or 520+100)
-                                        disabled
-                                        style={{ width: '100%', padding: '0.2rem', backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
-                                    />
-                                </div>
-                            )}
-
-                            {(cabinet.id === 'dolna-narozna' || cabinet.id === 'gorna-narozna' || cabinet.id === 'gorna-narozna-gleboka' || cabinet.id === 'dolna-rogowa') && (
-                                <div style={{ marginTop: '1rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                                        Strona szafki (Położenie blendy)
-                                    </label>
-                                    <div style={{ display: 'flex', gap: '1rem' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                                            <input
-                                                type="radio"
-                                                name="cornerOrientation"
-                                                value="right"
-                                                checked={formData.cornerOrientation === 'right'}
-                                                onChange={handleOrientationChange}
-                                            />
-                                            Prawa (Standard)
-                                        </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                                            <input
-                                                type="radio"
-                                                name="cornerOrientation"
-                                                value="left"
-                                                checked={formData.cornerOrientation === 'left'}
-                                                onChange={handleOrientationChange}
-                                            />
-                                            Lewa
-                                        </label>
-                                    </div>
-                                </div>
-                            )}
-
-                            {isUpperCabinet && (
-                                <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#fffbeb', borderRadius: '0.5rem', border: '1px solid #fef3c7', marginBottom: '1rem' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.extendFrontDown || false}
-                                            onChange={handleExtendFrontDownChange}
-                                        />
-                                        <span style={{ fontWeight: 'bold', color: '#92400e' }}>Przedłużenie frontu w dół o 20mm</span>
-                                    </label>
-                                    <p style={{ margin: '0.25rem 0 0 1.7rem', fontSize: '0.75rem', color: '#b45309' }}>
-                                        Front będzie wystawał poniżej korpusu szafki.
-                                    </p>
-                                </div>
-                            )}
-
-                            {cabinet.id.startsWith('dolna-') && cabinet.id !== 'dolna-rogowa' && (
-                                <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f0f9ff', borderRadius: '0.5rem', border: '1px solid #e0f2fe', marginBottom: '1rem' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.depthRogowa || false}
-                                            onChange={handleDepthRogowaChange}
-                                        />
-                                        <span style={{ fontWeight: 'bold', color: '#0369a1' }}>Zmiana głębokości na 540 (kontynuacja szafki rogowej)</span>
-                                    </label>
-                                    <p style={{ margin: '0.25rem 0 0 1.7rem', fontSize: '0.75rem', color: '#075985' }}>
-                                        Głębokość boku zostanie ustawiona na 540mm, a prześwit na 30mm.
-                                    </p>
-                                </div>
-                            )}
-
-                            {allowFullTopOption && (
-                                <div style={{ marginTop: '1rem' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.isFullTop || false}
-                                            onChange={handleFullTopChange}
-                                        />
-                                        Pełny wieniec górny (płyta 18mm)
-                                    </label>
-                                </div>
-                            )}
-
-                            <div style={{ marginTop: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                                    Kolor Korpusu
-                                </label>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setSelectorMode('body')}
-                                        style={{
-                                            padding: '0.8rem',
-                                            background: '#fff',
-                                            border: '1px solid #ddd',
-                                            borderRadius: '8px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '12px',
-                                            cursor: 'pointer',
-                                            textAlign: 'left',
-                                            transition: 'border-color 0.2s'
-                                        }}
-                                    >
-                                        <div style={{ 
-                                            width: '40px', 
-                                            height: '40px', 
-                                            borderRadius: '4px', 
-                                            border: '1px solid #eee',
-                                            overflow: 'hidden',
-                                            flexShrink: 0,
-                                            background: decors.find(d => d.id === formData.bodyDecorId)?.imageUrl ? `url(${decors.find(d => d.id === formData.bodyDecorId)?.thumbnailUrl}) center/cover` : '#ffffff'
-                                        }} />
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Materiał korpusu</div>
-                                            <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{decors.find(d => d.id === formData.bodyDecorId)?.name || 'Nie wybrano'}</div>
-                                        </div>
-                                        <span style={{ color: '#94a3b8' }}>&rarr;</span>
-                                    </button>
-
-                                </div>
-
-                            </div>
-
-                            {cabinet.id.startsWith('dolna-lodowka') && (
-                                <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-
-                                    {/* --- 1. Główna konfiguracja nawiertów (Przestrzeń lodówki) --- */}
-                                    <div style={{ padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
-                                        <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#444' }}>
-                                            Główna konfiguracja nawiertów
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem', opacity: ((cabinet.id !== 'dolna-lodowka-3' && cabinet.id !== 'dolna-lodowka-4') && formData.configAbove?.includes('Siłowniki')) ? 0.5 : 1 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('Mocowania zawiasów z lewej')}
-                                                    onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z lewej', e.target.checked)}
-                                                    disabled={(cabinet.id !== 'dolna-lodowka-3' && cabinet.id !== 'dolna-lodowka-4') && formData.configAbove?.includes('Siłowniki')}
-                                                />
-                                                Mocowania zawiasów z lewej
+                                    {cabinet.id === 'dolna-narozna' && (
+                                        <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                                                Konfiguracja (Nawierty)
                                             </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem', opacity: ((cabinet.id !== 'dolna-lodowka-3' && cabinet.id !== 'dolna-lodowka-4') && formData.configAbove?.includes('Siłowniki')) ? 0.5 : 1 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('Mocowania zawiasów z prawej')}
-                                                    onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z prawej', e.target.checked)}
-                                                    disabled={(cabinet.id !== 'dolna-lodowka-3' && cabinet.id !== 'dolna-lodowka-4') && formData.configAbove?.includes('Siłowniki')}
-                                                />
-                                                Mocowania zawiasów z prawej
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    {/* --- 2. Przestrzeń nad lodówką (configAbove) --- */}
-                                    <div style={{ padding: '0.5rem', background: '#eef6ff', borderRadius: '4px', border: '1px solid #cce0ff' }}>
-                                        <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#0056b3' }}>
-                                            Konfiguracja nawiertów (Przestrzeń nad {cabinet.id === 'dolna-lodowka-4' ? 'półkami' : cabinet.id === 'dolna-lodowka-3' ? 'szufladami wewnętrznymi' : cabinet.id === 'dolna-lodowka-2' ? 'cargo' : 'lodówką'})
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configAbove?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                    onChange={(e) => handleConfigAboveChange('Drzwi', e.target.checked)}
-                                                />
-                                                Drzwi
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: blockActuatorsFridge ? 0.4 : 1 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configAbove?.includes('Siłowniki')}
-                                                    onChange={(e) => handleConfigAboveChange('Siłowniki', e.target.checked)}
-                                                    disabled={blockActuatorsFridge}
-                                                />
-                                                Siłowniki
-                                                {blockActuatorsFridge && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(wymaga frontu ≤ 600 mm)</span>}
-                                            </label>
-                                            <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: (formData.configAbove?.some(o => o.toLowerCase().includes('drzwi')) || formData.configAbove?.includes('Siłowniki')) ? 1 : 0.5 }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                     <input
                                                         type="checkbox"
-                                                        checked={formData.configAbove?.includes('1 półka')}
-                                                        onChange={(e) => handleConfigAboveChange('1 półka', e.target.checked)}
-                                                        disabled={!(formData.configAbove?.some(o => o.toLowerCase().includes('drzwi')) || formData.configAbove?.includes('Siłowniki'))}
+                                                        checked={formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
+                                                        onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
+                                                    />
+                                                    Drzwi
+                                                </label>
+                                                <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) ? 1 : 0.5 }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(1) ? 1 : 0.5 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('1 półka')}
+                                                            onChange={(e) => handleConfigUnderChange('1 półka', e.target.checked)}
+                                                            disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) || !isShelfAllowed(1)}
+                                                        />
+                                                        1 Półka
+                                                    </label>
+                                                    <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('Magic Corner')}
+                                                            onChange={(e) => handleConfigUnderChange('Magic Corner', e.target.checked)}
+                                                            disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
+                                                        />
+                                                        Magic Corner
+                                                    </label>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('Le Mans')}
+                                                            onChange={(e) => handleConfigUnderChange('Le Mans', e.target.checked)}
+                                                            disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
+                                                        />
+                                                        Le Mans
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {cabinet.id === 'gorna-narozna' && (
+                                        <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                                                Konfiguracja (Nawierty)
+                                            </label>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
+                                                        onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
+                                                    />
+                                                    Drzwi
+                                                </label>
+                                                <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
+                                                {[1, 2, 3, 4, 5].map(num => {
+                                                    const label = num === 1 ? '1 półka' : (num >= 5 ? `${num} półek` : `${num} półki`);
+                                                    const labelDisplay = num === 1 ? '1 Półka' : (num >= 5 ? `${num} Półek` : `${num} Półki`);
+                                                    const allShelfLabels = ['1 półka', '2 półki', '3 półki', '4 półki', '5 półek'];
+                                                    return (
+                                                        <label key={num} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(num) ? 1 : 0.5 }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes(label)}
+                                                                onChange={(e) => {
+                                                                    // Odznacz wszystkie inne opcje półek
+                                                                    allShelfLabels.forEach(sl => {
+                                                                        if (sl !== label && formData.configUnder?.includes(sl)) {
+                                                                            handleConfigUnderChange(sl, false);
+                                                                        }
+                                                                    });
+                                                                    handleConfigUnderChange(label, e.target.checked);
+                                                                }}
+                                                                disabled={!isShelfAllowed(num)}
+                                                            />
+                                                            {labelDisplay}
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {cabinet.id === 'dolna-narozna-90' && (
+                                        <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                                                Konfiguracja (Nawierty)
+                                            </label>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.configUnder?.includes('Para drzwi')}
+                                                        onChange={(e) => handleConfigUnderChange('Para drzwi', e.target.checked)}
+                                                    />
+                                                    Para drzwi
+                                                </label>
+                                                <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(1) ? 1 : 0.5 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.configUnder?.includes('1 półka')}
+                                                        onChange={(e) => {
+                                                            handleConfigUnderChange('1 półka', e.target.checked);
+                                                            if (e.target.checked) {
+                                                                handleConfigUnderChange('2 półki', false);
+                                                            }
+                                                        }}
+                                                        disabled={!isShelfAllowed(1)}
                                                     />
                                                     1 Półka
                                                 </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: blockTwoShelvesFridge ? 0.4 : 1 }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(2) ? 1 : 0.5 }}>
                                                     <input
                                                         type="checkbox"
-                                                        checked={formData.configAbove?.includes('2 półki')}
-                                                        onChange={(e) => handleConfigAboveChange('2 półki', e.target.checked)}
-                                                        disabled={!(formData.configAbove?.some(o => o.toLowerCase().includes('drzwi')) || formData.configAbove?.includes('Siłowniki')) || blockTwoShelvesFridge}
+                                                        checked={formData.configUnder?.includes('2 półki')}
+                                                        onChange={(e) => {
+                                                            handleConfigUnderChange('2 półki', e.target.checked);
+                                                            if (e.target.checked) {
+                                                                handleConfigUnderChange('1 półka', false);
+                                                            }
+                                                        }}
+                                                        disabled={!isShelfAllowed(2)}
                                                     />
                                                     2 Półki
-                                                    {blockTwoShelvesFridge && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(wymaga wnęki nad {cabinet.id === 'dolna-lodowka-4' ? 'półkami' : cabinet.id === 'dolna-lodowka-3' ? 'szufladami wewnętrznymi' : cabinet.id === 'dolna-lodowka-2' ? 'cargo' : 'lodówką'} &gt; 60 cm)</span>}
                                                 </label>
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
 
-                                </div>
-                            )}
-
-                            {cabinet.id === 'dolna-narozna' && (
-                                <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
-                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>
-                                        Konfiguracja (Nawierty)
-                                    </label>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
-                                            />
-                                            Drzwi
-                                        </label>
-                                        <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) ? 1 : 0.5 }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(1) ? 1 : 0.5 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('1 półka')}
-                                                    onChange={(e) => handleConfigUnderChange('1 półka', e.target.checked)}
-                                                    disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) || !isShelfAllowed(1)}
-                                                />
-                                                1 Półka
+                                    {cabinet.id === 'gorna-narozna-90' && (
+                                        <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                                                Konfiguracja (Nawierty)
                                             </label>
-                                            <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('Magic Corner')}
-                                                    onChange={(e) => handleConfigUnderChange('Magic Corner', e.target.checked)}
-                                                    disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                />
-                                                Magic Corner
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('Le Mans')}
-                                                    onChange={(e) => handleConfigUnderChange('Le Mans', e.target.checked)}
-                                                    disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                />
-                                                Le Mans
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {cabinet.id === 'gorna-narozna' && (
-                                <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
-                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>
-                                        Konfiguracja (Nawierty)
-                                    </label>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
-                                            />
-                                            Drzwi
-                                        </label>
-                                        <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
-                                        {[1, 2, 3, 4, 5].map(num => {
-                                            const label = num === 1 ? '1 półka' : (num >= 5 ? `${num} półek` : `${num} półki`);
-                                            const labelDisplay = num === 1 ? '1 Półka' : (num >= 5 ? `${num} Półek` : `${num} Półki`);
-                                            const allShelfLabels = ['1 półka', '2 półki', '3 półki', '4 półki', '5 półek'];
-                                            return (
-                                                <label key={num} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(num) ? 1 : 0.5 }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                     <input
                                                         type="checkbox"
-                                                        checked={formData.configUnder?.includes(label)}
-                                                        onChange={(e) => {
-                                                            // Odznacz wszystkie inne opcje półek
-                                                            allShelfLabels.forEach(sl => {
-                                                                if (sl !== label && formData.configUnder?.includes(sl)) {
-                                                                    handleConfigUnderChange(sl, false);
-                                                                }
-                                                            });
-                                                            handleConfigUnderChange(label, e.target.checked);
-                                                        }}
-                                                        disabled={!isShelfAllowed(num)}
+                                                        checked={true}
+                                                        disabled={true}
+                                                        readOnly={true}
                                                     />
-                                                    {labelDisplay}
+                                                    Para drzwi
                                                 </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {cabinet.id === 'dolna-narozna-90' && (
-                                <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
-                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>
-                                        Konfiguracja (Nawierty)
-                                    </label>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.includes('Drzwi łamane')}
-                                                onChange={(e) => handleConfigUnderChange('Drzwi łamane', e.target.checked)}
-                                            />
-                                            Drzwi łamane
-                                        </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.includes('Para drzwi')}
-                                                onChange={(e) => handleConfigUnderChange('Para drzwi', e.target.checked)}
-                                            />
-                                            Para drzwi
-                                        </label>
-                                        <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(1) ? 1 : 0.5 }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.includes('1 półka')}
-                                                onChange={(e) => {
-                                                    handleConfigUnderChange('1 półka', e.target.checked);
-                                                    if (e.target.checked) {
-                                                        handleConfigUnderChange('2 półki', false);
-                                                    }
-                                                }}
-                                                disabled={!isShelfAllowed(1)}
-                                            />
-                                            1 Półka
-                                        </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(2) ? 1 : 0.5 }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.includes('2 półki')}
-                                                onChange={(e) => {
-                                                    handleConfigUnderChange('2 półki', e.target.checked);
-                                                    if (e.target.checked) {
-                                                        handleConfigUnderChange('1 półka', false);
-                                                    }
-                                                }}
-                                                disabled={!isShelfAllowed(2)}
-                                            />
-                                            2 Półki
-                                        </label>
-                                    </div>
-                                </div>
-                            )}
-
-                            {cabinet.id === 'gorna-narozna-90' && (
-                                <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
-                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>
-                                        Konfiguracja (Nawierty)
-                                    </label>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.includes('Drzwi łamane')}
-                                                onChange={(e) => handleConfigUnderChange('Drzwi łamane', e.target.checked)}
-                                            />
-                                            Drzwi łamane
-                                        </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.includes('Para drzwi')}
-                                                onChange={(e) => handleConfigUnderChange('Para drzwi', e.target.checked)}
-                                            />
-                                            Para drzwi
-                                        </label>
-                                        <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
-                                        {[1, 2, 3, 4, 5].map(num => {
-                                            const label = num === 1 ? '1 półka' : (num >= 5 ? `${num} półek` : `${num} półki`);
-                                            const display = num === 1 ? '1 Półka' : (num >= 5 ? `${num} Półek` : `${num} Półki`);
-                                            const allShelfLabels = ['1 półka', '2 półki', '3 półki', '4 półki', '5 półek'];
-                                            return (
-                                                <label key={num} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(num) ? 1 : 0.5 }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.configUnder?.includes(label)}
-                                                        onChange={(e) => {
-                                                            allShelfLabels.forEach(sl => {
-                                                                if (sl !== label && formData.configUnder?.includes(sl)) {
-                                                                    handleConfigUnderChange(sl, false);
-                                                                }
-                                                            });
-                                                            handleConfigUnderChange(label, e.target.checked);
-                                                        }}
-                                                        disabled={!isShelfAllowed(num)}
-                                                    />
-                                                    {display}
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {cabinet.id === 'dolna-zlew' && (
-                                <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
-                                            />
-                                            Drzwi
-                                        </label>
-                                        <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) ? 1 : 0.5 }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('Mocowania zawiasów z lewej')}
-                                                    onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z lewej', e.target.checked)}
-                                                    disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                />
-                                                Mocowania zawiasów z lewej
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('Mocowania zawiasów z prawej')}
-                                                    onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z prawej', e.target.checked)}
-                                                    disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                />
-                                                Mocowania zawiasów z prawej
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(1) ? 1 : 0.5 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('1 półka')}
-                                                    onChange={(e) => handleConfigUnderChange('1 półka', e.target.checked)}
-                                                    disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) || !isShelfAllowed(1)}
-                                                />
-                                                1 Półka
-                                            </label>
-                                        </div>
-                                        <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.includes('1 szuflada')}
-                                                onChange={(e) => handleConfigUnderChange('1 szuflada', e.target.checked)}
-                                            />
-                                            1 Szuflada
-                                        </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.includes('2 szuflady (główna + wewnętrzna)')}
-                                                onChange={(e) => handleConfigUnderChange('2 szuflady (główna + wewnętrzna)', e.target.checked)}
-                                            />
-                                            2 Szuflady (główna + wewnętrzna)
-                                        </label>
-                                    </div>
-                                </div>
-                            )}
-                            {cabinet.id.startsWith('gorna-') && !isSimpleElement && cabinet.id !== 'gorna-narozna' && cabinet.id !== 'gorna-narozna-gleboka' && cabinet.id !== 'gorna-narozna-90' && (
-                                <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
-                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>
-                                        Konfiguracja (Nawierty)
-                                    </label>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
-                                            />
-                                            Drzwi
-                                        </label>
-                                        <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) ? 1 : 0.5 }}>
-                                            <div style={{ opacity: blockHingesForDoubleDoors || formData.configUnder?.includes('Siłowniki') ? 0.5 : 1, display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.configUnder?.includes('Mocowania zawiasów z lewej')}
-                                                        onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z lewej', e.target.checked)}
-                                                        disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) || blockHingesForDoubleDoors || formData.configUnder?.includes('Siłowniki')}
-                                                    />
-                                                    Mocowania zawiasów z lewej
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.configUnder?.includes('Mocowania zawiasów z prawej')}
-                                                        onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z prawej', e.target.checked)}
-                                                        disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) || blockHingesForDoubleDoors || formData.configUnder?.includes('Siłowniki')}
-                                                    />
-                                                    Mocowania zawiasów z prawej
-                                                </label>
+                                                <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
+                                                {[1, 2, 3, 4, 5].map(num => {
+                                                    const label = num === 1 ? '1 półka' : (num >= 5 ? `${num} półek` : `${num} półki`);
+                                                    const display = num === 1 ? '1 Półka' : (num >= 5 ? `${num} Półek` : `${num} Półki`);
+                                                    const allShelfLabels = ['1 półka', '2 półki', '3 półki', '4 półki', '5 półek'];
+                                                    return (
+                                                        <label key={num} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(num) ? 1 : 0.5 }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes(label)}
+                                                                onChange={(e) => {
+                                                                    allShelfLabels.forEach(sl => {
+                                                                        if (sl !== label && formData.configUnder?.includes(sl)) {
+                                                                            handleConfigUnderChange(sl, false);
+                                                                        }
+                                                                    });
+                                                                    handleConfigUnderChange(label, e.target.checked);
+                                                                }}
+                                                                disabled={!isShelfAllowed(num)}
+                                                            />
+                                                            {display}
+                                                        </label>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: blockActuatorsUpper ? 0.4 : 1 }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.includes('Siłowniki')}
-                                                onChange={(e) => handleConfigUnderChange('Siłowniki', e.target.checked)}
-                                                disabled={blockActuatorsUpper}
-                                            />
-                                            Siłowniki
-                                            {blockActuatorsUpper && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(wymaga wys. ≤ 600 mm)</span>}
-                                        </label>
-                                        <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: (cabinet.id === 'gorna-okapowa' || formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) || formData.configUnder?.includes('Siłowniki')) ? 1 : 0.5 }}>
-                                            {[1, 2, 3, 4, 5].filter(num => {
-                                                if (!cabinet.configurationOptions) return true;
-                                                const label = num === 1 ? '1 półka' : (num >= 5 ? `${num} półek` : `${num} półki`);
-                                                return cabinet.configurationOptions.some(opt => opt.toLowerCase() === label.toLowerCase());
-                                            }).map(num => {
-                                                const label = num === 1 ? '1 półka' : (num >= 5 ? `${num} półek` : `${num} półki`);
-                                                const display = num === 1 ? '1 Półka' : (num >= 5 ? `${num} Półek` : `${num} Półki`);
-                                                const allShelfLabels = ['1 półka', '2 półki', '3 półki', '4 półki', '5 półek'];
-                                                return (
-                                                    <label key={num} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(num) ? 1 : 0.5 }}>
+                                    )}
+
+                                    {cabinet.id === 'dolna-zlew' && (
+                                        <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
+                                                        onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
+                                                    />
+                                                    Drzwi
+                                                </label>
+                                                <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) ? 1 : 0.5 }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
                                                         <input
                                                             type="checkbox"
-                                                            checked={formData.configUnder?.includes(label)}
-                                                            onChange={(e) => {
-                                                                allShelfLabels.forEach(sl => {
-                                                                    if (sl !== label && formData.configUnder?.includes(sl)) {
-                                                                        handleConfigUnderChange(sl, false);
-                                                                    }
-                                                                });
-                                                                handleConfigUnderChange(label, e.target.checked);
-                                                            }}
-                                                            disabled={(cabinet.id !== 'gorna-okapowa' && !formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) && !formData.configUnder?.includes('Siłowniki')) || !isShelfAllowed(num)}
+                                                            checked={formData.configUnder?.includes('Mocowania zawiasów z lewej')}
+                                                            onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z lewej', e.target.checked)}
+                                                            disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
                                                         />
-                                                        {display}
+                                                        Mocowania zawiasów z lewej
                                                     </label>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {cabinet.id === 'gorna-okapowa' && (
-                                <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
-                                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#1e293b', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line></svg>
-                                        Rozmieszczenie półek - szczegóły
-                                    </div>
-                                    
-                                    {(() => {
-                                        const internalH = formData.height - (formData.hoodHeight || 150) - (THICKNESS * 3);
-                                        const totalShelves = (formData.configUnder || []).reduce((acc, opt) => {
-                                            const m = opt.match(/(\d+)\s*pół/i);
-                                            return m ? parseInt(m[1]) : acc;
-                                        }, 0);
-                                        const spacesCount = totalShelves + 1;
-                                        let remaining = internalH - (totalShelves * THICKNESS);
-                                        const spaceHeights: number[] = [];
-                                        for (let j = 0; j < spacesCount; j++) {
-                                            const h = Math.round(remaining / (spacesCount - j));
-                                            spaceHeights.push(h);
-                                            remaining -= h;
-                                        }
-
-                                        return (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', background: '#fff', border: '2px solid #cbd5e1', borderRadius: '4px', padding: '10px' }}>
-                                                {spaceHeights.map((sh, idx) => (
-                                                    <React.Fragment key={idx}>
-                                                        <div style={{ 
-                                                            height: '40px', 
-                                                            display: 'flex', 
-                                                            alignItems: 'center', 
-                                                            justifyContent: 'center', 
-                                                            background: '#f1f5f9',
-                                                            fontSize: '0.85rem',
-                                                            fontWeight: '600',
-                                                            color: '#475569',
-                                                            border: '1px dashed #cbd5e1'
-                                                        }}>
-                                                            {sh} mm
-                                                        </div>
-                                                        {idx < spaceHeights.length - 1 && (
-                                                            <div style={{ height: '4px', background: '#94a3b8', borderRadius: '2px', margin: '2px 0' }} title="Półka 18mm" />
-                                                        )}
-                                                    </React.Fragment>
-                                                ))}
-                                                <div style={{ marginTop: '8px', textAlign: 'center', fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic' }}>
-                                                    Wymiary prześwitów (od góry do dołu)
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('Mocowania zawiasów z prawej')}
+                                                            onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z prawej', e.target.checked)}
+                                                            disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
+                                                        />
+                                                        Mocowania zawiasów z prawej
+                                                    </label>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(1) ? 1 : 0.5 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('1 półka')}
+                                                            onChange={(e) => handleConfigUnderChange('1 półka', e.target.checked)}
+                                                            disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) || !isShelfAllowed(1)}
+                                                        />
+                                                        1 Półka
+                                                    </label>
                                                 </div>
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-                            )}
-
-                            {cabinet.id === 'gorna-narozna-gleboka' && (
-                                <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
-                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>
-                                        Konfiguracja (Nawierty)
-                                    </label>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
-                                            />
-                                            Drzwi
-                                        </label>
-                                        <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) ? 1 : 0.5 }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('1 półka')}
-                                                    onChange={(e) => handleConfigUnderChange('1 półka', e.target.checked)}
-                                                    disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                />
-                                                1 Półka
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {cabinet.id !== 'dolna-piekarnik' && cabinet.id !== 'dolna-piekarnik-podblatowa' && !cabinet.id.startsWith('dolna-lodowka') && cabinet.id !== 'dolna-narozna' && cabinet.id !== 'dolna-narozna-90' && cabinet.id !== 'dolna-zlew' && !cabinet.id.startsWith('gorna-') && !isSimpleElement && (
-                                <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                        {/* Drzwi */}
-                                        {!cabinet.id.startsWith('gorna-') && (
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                    onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
-                                                />
-                                                Drzwi
-                                            </label>
-                                        )}
-                                        {/* Mocowania zawiasów (only when Drzwi is selected) */}
-                                        {formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) && (
-                                            <div style={{ marginLeft: '1.5rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: blockHingesForDoubleDoors ? 0.5 : 1 }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.configUnder?.includes('Mocowania zawiasów z lewej')}
-                                                        onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z lewej', e.target.checked)}
-                                                        disabled={blockHingesForDoubleDoors}
-                                                    />
-                                                    Mocowania zawiasów z lewej
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.configUnder?.includes('Mocowania zawiasów z prawej')}
-                                                        onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z prawej', e.target.checked)}
-                                                        disabled={blockHingesForDoubleDoors}
-                                                    />
-                                                    Mocowania zawiasów z prawej
-                                                </label>
-                                            </div>
-                                        )}
-                                        <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
-
-                                        {/* Półki (zależne od Drzwi dla dolnych, domyślne dla górnych) */}
-                                        <div style={{ marginLeft: !cabinet.id.startsWith('gorna-') ? '1.5rem' : '0', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: (cabinet.id.startsWith('gorna-') || formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))) ? 1 : 0.5 }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(1) ? 1 : 0.5 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('1 półka')}
-                                                    onChange={(e) => handleConfigUnderChange('1 półka', e.target.checked)}
-                                                    disabled={(!cabinet.id.startsWith('gorna-') && !formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))) || !isShelfAllowed(1)}
-                                                />
-                                                1 Półka
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(2) ? 1 : 0.5 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('2 półki')}
-                                                    onChange={(e) => handleConfigUnderChange('2 półki', e.target.checked)}
-                                                    disabled={(!cabinet.id.startsWith('gorna-') && !formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))) || !isShelfAllowed(2)}
-                                                />
-                                                2 Półki
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(3) ? 1 : 0.5 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('3 półki')}
-                                                    onChange={(e) => handleConfigUnderChange('3 półki', e.target.checked)}
-                                                    disabled={(!cabinet.id.startsWith('gorna-') && !formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))) || !isShelfAllowed(3)}
-                                                />
-                                                3 Półki
-                                            </label>
-                                        </div>
-
-                                        {/* Szuflady (Tylko dla dolnych, wykluczają się z drzwiami) */}
-                                        {!cabinet.id.startsWith('gorna-') && !cabinet.id.includes('narozna') && cabinet.id !== 'dolna-rogowa' && (
-                                            <>
                                                 <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isNarrowStandard ? 0.4 : 1 }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                     <input
                                                         type="checkbox"
                                                         checked={formData.configUnder?.includes('1 szuflada')}
                                                         onChange={(e) => handleConfigUnderChange('1 szuflada', e.target.checked)}
-                                                        disabled={isNarrowStandard}
                                                     />
                                                     1 Szuflada
-                                                    {isNarrowStandard && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(tylko &gt; 20cm)</span>}
                                                 </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isNarrowStandard ? 0.4 : 1 }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.configUnder?.includes('2 szuflady')}
-                                                        onChange={(e) => handleConfigUnderChange('2 szuflady', e.target.checked)}
-                                                        disabled={isNarrowStandard}
-                                                    />
-                                                    2 Szuflady
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isNarrowStandard ? 0.4 : 1 }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.configUnder?.includes('3 szuflady')}
-                                                        onChange={(e) => handleConfigUnderChange('3 szuflady', e.target.checked)}
-                                                        disabled={isNarrowStandard}
-                                                    />
-                                                    3 Szuflady
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isNarrowStandard ? 0.4 : 1 }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.configUnder?.includes('3 szuflady (2 wysokie jedna niska)')}
-                                                        onChange={(e) => handleConfigUnderChange('3 szuflady (2 wysokie jedna niska)', e.target.checked)}
-                                                        disabled={isNarrowStandard}
-                                                    />
-                                                    3 Szuflady (2 wysokie jedna niska)
-                                                </label>
-                                            </>
-                                        )}
-
-                                        {filteredOptions.length > 0 && filteredOptions.filter(opt => !['Drzwi', 'Para drzwi', '1 półka', '2 półki', '3 półki', '4 półki', '5 półek', '1 szuflada', '2 szuflady', '3 szuflady', '3 szuflady (2 wysokie jedna niska)', 'Siłowniki'].includes(opt) && !opt.toLowerCase().includes('blenda okapu skrócona')).map(opt => (
-                                            <React.Fragment key={opt}>
-                                                <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
                                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                     <input
                                                         type="checkbox"
-                                                        checked={formData.configUnder?.includes(opt)}
-                                                        onChange={(e) => handleConfigUnderChange(opt, e.target.checked)}
+                                                        checked={formData.configUnder?.includes('2 szuflady (główna + wewnętrzna)')}
+                                                        onChange={(e) => handleConfigUnderChange('2 szuflady (główna + wewnętrzna)', e.target.checked)}
                                                     />
-                                                    {opt}
-                                                </label>
-                                            </React.Fragment>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {cabinet.id === 'dolna-piekarnik' && (
-                                <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    {/* Oven Base Height */}
-                                    <div style={{ background: '#f0f9ff', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #bae6fd' }}>
-                                        <h3 style={{ marginTop: 0, fontSize: '1rem', marginBottom: '0.5rem' }}>Baza Słupka Piekarnikowego</h3>
-                                        <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold' }}>Wysokość dolnej przestrzeni bazy (mm)</label>
-                                        <select
-                                            value={formData.ovenBaseHeight || 720}
-                                            onChange={handleOvenBaseHeightChange}
-                                            style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px' }}
-                                        >
-                                            <option value={720}>720</option>
-                                            <option value={760}>760</option>
-                                            <option value={780}>780</option>
-                                        </select>
-                                        <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.4rem', marginBottom: 0 }}>
-                                            Ta opcja definiuje gdzie zacznie się główna dolna podpora piekarnika.  Wybór opcji w formularzu "Obniżenie piekarnika" odejmie od tego wymiaru na dole 140 mm w razie potrzeby.
-                                        </p>
-                                    </div>
-
-                                    {/* Oven Height */}
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
-                                            Wysokość wnęki na piekarnik (mm)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={formData.ovenSpaceHeight}
-                                            onChange={handleOvenHeightChange}
-                                            style={{ width: '100%', padding: '0.2rem', backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
-                                            disabled={true}
-                                        />
-                                    </div>
-
-                                    {/* Microwave Height */}
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
-                                            Wysokość wnęki na mikrofalówkę (mm)
-                                        </label>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.2rem' }}>
-                                            <input
-                                                type="range"
-                                                min={380}
-                                                max={600}
-                                                step={10}
-                                                value={formData.microwaveSpaceHeight || 380}
-                                                onChange={handleMicrowaveHeightChange}
-                                                style={{ width: '100%', cursor: 'pointer', margin: 0, padding: 0, outline: 'none' }}
-                                            />
-                                            <input
-                                                type="number"
-                                                min={380}
-                                                max={600}
-                                                value={formData.microwaveSpaceHeight || 380}
-                                                onChange={handleMicrowaveHeightChange}
-                                                style={{ width: '100%', padding: '0.2rem' }}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* --- 1. Główna konfiguracja nawiertów --- */}
-                                    <div style={{ padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
-                                        <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#444' }}>
-                                            Główna konfiguracja nawiertów
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('Mocowania zawiasów z lewej')}
-                                                    onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z lewej', e.target.checked)}
-                                                />
-                                                Mocowania zawiasów z lewej
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('Mocowania zawiasów z prawej')}
-                                                    onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z prawej', e.target.checked)}
-                                                />
-                                                Mocowania zawiasów z prawej
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    {/* --- 2. Konfiguracja nawiertów (Przestrzeń nad piekarnikiem) --- */}
-                                    <div style={{ padding: '0.5rem', background: '#eef6ff', borderRadius: '4px', border: '1px solid #cce0ff' }}>
-                                        <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#0056b3' }}>
-                                            Konfiguracja nawiertów (Przestrzeń nad piekarnikiem)
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configAbove?.some(o => o.toLowerCase().includes('drzwi'))}
-                                                    onChange={(e) => handleConfigAboveChange('Drzwi', e.target.checked)}
-                                                />
-                                                Drzwi
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: blockActuatorsOven ? 0.4 : 1 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configAbove?.includes('Siłowniki')}
-                                                    onChange={(e) => handleConfigAboveChange('Siłowniki', e.target.checked)}
-                                                    disabled={blockActuatorsOven}
-                                                />
-                                                Siłowniki
-                                                {blockActuatorsOven && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(wymaga wys. ≤ 600 mm)</span>}
-                                            </label>
-                                            <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: (formData.configAbove?.some(o => o.toLowerCase().includes('drzwi')) || formData.configAbove?.includes('Siłowniki')) ? 1 : 0.5 }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.configAbove?.includes('1 półka') || formData.configAbove?.includes('1 Półka')}
-                                                        onChange={(e) => handleConfigAboveChange('1 półka', e.target.checked)}
-                                                        disabled={!(formData.configAbove?.some(o => o.toLowerCase().includes('drzwi')) || formData.configAbove?.includes('Siłowniki'))}
-                                                    />
-                                                    1 Półka
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: blockTwoShelvesAbove ? 0.4 : 1 }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.configAbove?.includes('2 półki') || formData.configAbove?.includes('2 Półki')}
-                                                        onChange={(e) => handleConfigAboveChange('2 półki', e.target.checked)}
-                                                        disabled={!(formData.configAbove?.some(o => o.toLowerCase().includes('drzwi')) || formData.configAbove?.includes('Siłowniki')) || blockTwoShelvesAbove}
-                                                    />
-                                                    2 Półki
-                                                    {blockTwoShelvesAbove && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(wysokość wnęki &lt; 45 cm)</span>}
+                                                    2 Szuflady (główna + wewnętrzna)
                                                 </label>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    {/* --- 3. Konfiguracja nawiertów (Przestrzeń pod piekarnikiem) --- */}
-                                    <div style={{ padding: '0.5rem', background: '#fdf4ea', borderRadius: '4px', border: '1px solid #fbd38d' }}>
-                                        <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#9c4221' }}>
-                                            Konfiguracja nawiertów (Przestrzeń pod piekarnikiem)
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#c05621', fontWeight: '500' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('Obniżenie piekarnika o 1 szufladę (14 cm)')}
-                                                    onChange={(e) => handleConfigUnderChange('Obniżenie piekarnika o 1 szufladę (14 cm)', e.target.checked)}
-                                                />
-                                                Obniżenie piekarnika o 1 szufladę (14 cm)
-                                            </label>
-                                            <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #fbd38d', margin: '0.4rem 0' }} />
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('Drzwi')}
-                                                    onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
-                                                />
-                                                Drzwi
-                                            </label>
-                                            <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: formData.configUnder?.includes('Drzwi') ? 1 : 0.5 }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.configUnder?.includes('1 półka')}
-                                                        onChange={(e) => handleConfigUnderChange('1 półka', e.target.checked)}
-                                                        disabled={!formData.configUnder?.includes('Drzwi')}
-                                                    />
-                                                    1 Półka
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.configUnder?.includes('2 półki')}
-                                                        onChange={(e) => handleConfigUnderChange('2 półki', e.target.checked)}
-                                                        disabled={!formData.configUnder?.includes('Drzwi')}
-                                                    />
-                                                    2 Półki
-                                                </label>
-                                            </div>
-                                            <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #fbd38d', margin: '0.4rem 0' }} />
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.configUnder?.includes('3 szuflady (2 wysokie jedna niska)') || formData.configUnder?.includes('3 Szuflady (2 wysokie jedna niska)')}
-                                                    onChange={(e) => handleConfigUnderChange('3 szuflady (2 wysokie jedna niska)', e.target.checked)}
-                                                />
-                                                3 Szuflady (2 wysokie jedna niska)
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                </div>
-                            )}
-                            {!isBlenda && (
-                                <div style={{ background: '#fafafa', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1.5rem', border: '1px solid #ddd' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.5rem' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.hasFronts || false}
-                                            onChange={handleFormFrontsToggle}
-                                            style={{ transform: 'scale(1.2)' }}
-                                        />
-                                        Fronty zewnętrzne (Drzwi / Szuflady)
-                                    </label>
-
-                                    {formData.hasFronts && (
-                                        <div style={{ marginTop: '0.8rem', paddingLeft: '1.5rem' }}>
-                                            <button 
-                                                type="button"
-                                                onClick={() => setSelectorMode('front')}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '0.8rem',
-                                                    background: '#fff',
-                                                    border: '1px solid #ddd',
-                                                    borderRadius: '8px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '12px',
-                                                    cursor: 'pointer',
-                                                    textAlign: 'left',
-                                                    transition: 'border-color 0.2s'
-                                                }}
-                                            >
-                                                <div style={{ 
-                                                    width: '40px', 
-                                                    height: '40px', 
-                                                    borderRadius: '4px', 
-                                                    border: '1px solid #eee',
-                                                    overflow: 'hidden',
-                                                    flexShrink: 0,
-                                                    background: decors.find(d => d.id === formData.frontDecorId)?.imageUrl ? `url(${decors.find(d => d.id === formData.frontDecorId)?.thumbnailUrl}) center/cover` : '#ffffff'
-                                                }} />
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Materiał frontów</div>
-                                                    <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{decors.find(d => d.id === formData.frontDecorId)?.name || 'Nie wybrano'}</div>
-                                                </div>
-                                                <span style={{ color: '#94a3b8' }}>&rarr;</span>
-                                            </button>
                                         </div>
                                     )}
-                                </div>
-                            )}
-                            </>
+                                    {cabinet.id.startsWith('gorna-') && !isSimpleElement && cabinet.id !== 'gorna-narozna' && cabinet.id !== 'gorna-narozna-gleboka' && cabinet.id !== 'gorna-narozna-90' && (
+                                        <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                                                Konfiguracja (Nawierty)
+                                            </label>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
+                                                        onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
+                                                    />
+                                                    Drzwi
+                                                </label>
+                                                <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) ? 1 : 0.5 }}>
+                                                    <div style={{ opacity: blockHingesForDoubleDoors || formData.configUnder?.includes('Siłowniki') ? 0.5 : 1, display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes('Mocowania zawiasów z lewej')}
+                                                                onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z lewej', e.target.checked)}
+                                                                disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) || blockHingesForDoubleDoors || formData.configUnder?.includes('Siłowniki')}
+                                                            />
+                                                            Mocowania zawiasów z lewej
+                                                        </label>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes('Mocowania zawiasów z prawej')}
+                                                                onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z prawej', e.target.checked)}
+                                                                disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) || blockHingesForDoubleDoors || formData.configUnder?.includes('Siłowniki')}
+                                                            />
+                                                            Mocowania zawiasów z prawej
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: blockActuatorsUpper ? 0.4 : 1 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.configUnder?.includes('Siłowniki')}
+                                                        onChange={(e) => handleConfigUnderChange('Siłowniki', e.target.checked)}
+                                                        disabled={blockActuatorsUpper}
+                                                    />
+                                                    Siłowniki
+                                                    {blockActuatorsUpper && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(wymaga wys. ≤ 600 mm)</span>}
+                                                </label>
+                                                <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: (cabinet.id === 'gorna-okapowa' || formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) || formData.configUnder?.includes('Siłowniki')) ? 1 : 0.5 }}>
+                                                    {[1, 2, 3, 4, 5].filter(num => {
+                                                        if (!cabinet.configurationOptions) return true;
+                                                        const label = num === 1 ? '1 półka' : (num >= 5 ? `${num} półek` : `${num} półki`);
+                                                        return cabinet.configurationOptions.some(opt => opt.toLowerCase() === label.toLowerCase());
+                                                    }).map(num => {
+                                                        const label = num === 1 ? '1 półka' : (num >= 5 ? `${num} półek` : `${num} półki`);
+                                                        const display = num === 1 ? '1 Półka' : (num >= 5 ? `${num} Półek` : `${num} Półki`);
+                                                        const allShelfLabels = ['1 półka', '2 półki', '3 półki', '4 półki', '5 półek'];
+                                                        return (
+                                                            <label key={num} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(num) ? 1 : 0.5 }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={formData.configUnder?.includes(label)}
+                                                                    onChange={(e) => {
+                                                                        allShelfLabels.forEach(sl => {
+                                                                            if (sl !== label && formData.configUnder?.includes(sl)) {
+                                                                                handleConfigUnderChange(sl, false);
+                                                                            }
+                                                                        });
+                                                                        handleConfigUnderChange(label, e.target.checked);
+                                                                    }}
+                                                                    disabled={(cabinet.id !== 'gorna-okapowa' && !formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) && !formData.configUnder?.includes('Siłowniki')) || !isShelfAllowed(num)}
+                                                                />
+                                                                {display}
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {cabinet.id === 'gorna-okapowa' && (
+                                        <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
+                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#1e293b', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line></svg>
+                                                Rozmieszczenie półek - szczegóły
+                                            </div>
+
+                                            {(() => {
+                                                const internalH = formData.height - (formData.hoodHeight || 150) - (THICKNESS * 3);
+                                                const totalShelves = (formData.configUnder || []).reduce((acc, opt) => {
+                                                    const m = opt.match(/(\d+)\s*pół/i);
+                                                    return m ? parseInt(m[1]) : acc;
+                                                }, 0);
+                                                const spacesCount = totalShelves + 1;
+                                                let remaining = internalH - (totalShelves * THICKNESS);
+                                                const spaceHeights: number[] = [];
+                                                for (let j = 0; j < spacesCount; j++) {
+                                                    const h = Math.round(remaining / (spacesCount - j));
+                                                    spaceHeights.push(h);
+                                                    remaining -= h;
+                                                }
+
+                                                return (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', background: '#fff', border: '2px solid #cbd5e1', borderRadius: '4px', padding: '10px' }}>
+                                                        {spaceHeights.map((sh, idx) => (
+                                                            <React.Fragment key={idx}>
+                                                                <div style={{
+                                                                    height: '40px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    background: '#f1f5f9',
+                                                                    fontSize: '0.85rem',
+                                                                    fontWeight: '600',
+                                                                    color: '#475569',
+                                                                    border: '1px dashed #cbd5e1'
+                                                                }}>
+                                                                    {sh} mm
+                                                                </div>
+                                                                {idx < spaceHeights.length - 1 && (
+                                                                    <div style={{ height: '4px', background: '#94a3b8', borderRadius: '2px', margin: '2px 0' }} title="Półka 18mm" />
+                                                                )}
+                                                            </React.Fragment>
+                                                        ))}
+                                                        <div style={{ marginTop: '8px', textAlign: 'center', fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic' }}>
+                                                            Wymiary prześwitów (od góry do dołu)
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                    )}
+
+                                    {cabinet.id === 'gorna-narozna-gleboka' && (
+                                        <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                                                Konfiguracja (Nawierty)
+                                            </label>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
+                                                        onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
+                                                    />
+                                                    Drzwi
+                                                </label>
+                                                <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) ? 1 : 0.5 }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('1 półka')}
+                                                            onChange={(e) => handleConfigUnderChange('1 półka', e.target.checked)}
+                                                            disabled={!formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
+                                                        />
+                                                        1 Półka
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {cabinet.id !== 'dolna-piekarnik' && cabinet.id !== 'dolna-piekarnik-podblatowa' && !cabinet.id.startsWith('dolna-lodowka') && cabinet.id !== 'dolna-narozna' && cabinet.id !== 'dolna-narozna-90' && cabinet.id !== 'dolna-zlew' && !cabinet.id.startsWith('gorna-') && !isSimpleElement && (
+                                        <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                {/* Drzwi */}
+                                                {!cabinet.id.startsWith('gorna-') && (
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))}
+                                                            onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
+                                                        />
+                                                        Drzwi
+                                                    </label>
+                                                )}
+                                                {/* Mocowania zawiasów (only when Drzwi is selected) */}
+                                                {formData.configUnder?.some(o => o.toLowerCase().includes('drzwi')) && (
+                                                    <div style={{ marginLeft: '1.5rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: blockHingesForDoubleDoors ? 0.5 : 1 }}>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes('Mocowania zawiasów z lewej')}
+                                                                onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z lewej', e.target.checked)}
+                                                                disabled={blockHingesForDoubleDoors}
+                                                            />
+                                                            Mocowania zawiasów z lewej
+                                                        </label>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes('Mocowania zawiasów z prawej')}
+                                                                onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z prawej', e.target.checked)}
+                                                                disabled={blockHingesForDoubleDoors}
+                                                            />
+                                                            Mocowania zawiasów z prawej
+                                                        </label>
+                                                    </div>
+                                                )}
+                                                <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
+
+                                                {/* Półki (zależne od Drzwi dla dolnych, domyślne dla górnych) */}
+                                                <div style={{ marginLeft: !cabinet.id.startsWith('gorna-') ? '1.5rem' : '0', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: (cabinet.id.startsWith('gorna-') || formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))) ? 1 : 0.5 }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(1) ? 1 : 0.5 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('1 półka')}
+                                                            onChange={(e) => handleConfigUnderChange('1 półka', e.target.checked)}
+                                                            disabled={(!cabinet.id.startsWith('gorna-') && !formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))) || !isShelfAllowed(1)}
+                                                        />
+                                                        1 Półka
+                                                    </label>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(2) ? 1 : 0.5 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('2 półki')}
+                                                            onChange={(e) => handleConfigUnderChange('2 półki', e.target.checked)}
+                                                            disabled={(!cabinet.id.startsWith('gorna-') && !formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))) || !isShelfAllowed(2)}
+                                                        />
+                                                        2 Półki
+                                                    </label>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isShelfAllowed(3) ? 1 : 0.5 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('3 półki')}
+                                                            onChange={(e) => handleConfigUnderChange('3 półki', e.target.checked)}
+                                                            disabled={(!cabinet.id.startsWith('gorna-') && !formData.configUnder?.some(o => o.toLowerCase().includes('drzwi'))) || !isShelfAllowed(3)}
+                                                        />
+                                                        3 Półki
+                                                    </label>
+                                                </div>
+
+                                                {/* Szuflady (Tylko dla dolnych, wykluczają się z drzwiami) */}
+                                                {!cabinet.id.startsWith('gorna-') && !cabinet.id.includes('narozna') && cabinet.id !== 'dolna-rogowa' && (
+                                                    <>
+                                                        <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isNarrowStandard ? 0.4 : 1 }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes('1 szuflada')}
+                                                                onChange={(e) => handleConfigUnderChange('1 szuflada', e.target.checked)}
+                                                                disabled={isNarrowStandard}
+                                                            />
+                                                            1 Szuflada
+                                                            {isNarrowStandard && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(tylko &gt; 20cm)</span>}
+                                                        </label>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isNarrowStandard ? 0.4 : 1 }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes('2 szuflady')}
+                                                                onChange={(e) => handleConfigUnderChange('2 szuflady', e.target.checked)}
+                                                                disabled={isNarrowStandard}
+                                                            />
+                                                            2 Szuflady
+                                                        </label>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isNarrowStandard ? 0.4 : 1 }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes('3 szuflady')}
+                                                                onChange={(e) => handleConfigUnderChange('3 szuflady', e.target.checked)}
+                                                                disabled={isNarrowStandard}
+                                                            />
+                                                            3 Szuflady
+                                                        </label>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: isNarrowStandard ? 0.4 : 1 }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes('3 szuflady (2 wysokie jedna niska)')}
+                                                                onChange={(e) => handleConfigUnderChange('3 szuflady (2 wysokie jedna niska)', e.target.checked)}
+                                                                disabled={isNarrowStandard}
+                                                            />
+                                                            3 Szuflady (2 wysokie jedna niska)
+                                                        </label>
+                                                    </>
+                                                )}
+
+                                                {filteredOptions.length > 0 && filteredOptions.filter(opt => !['Drzwi', 'Para drzwi', '1 półka', '2 półki', '3 półki', '4 półki', '5 półek', '1 szuflada', '2 szuflady', '3 szuflady', '3 szuflady (2 wysokie jedna niska)', 'Siłowniki'].includes(opt) && !opt.toLowerCase().includes('blenda okapu skrócona')).map(opt => (
+                                                    <React.Fragment key={opt}>
+                                                        <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #eee', margin: '0.2rem 0' }} />
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes(opt)}
+                                                                onChange={(e) => handleConfigUnderChange(opt, e.target.checked)}
+                                                            />
+                                                            {opt}
+                                                        </label>
+                                                    </React.Fragment>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {cabinet.id === 'dolna-piekarnik' && (
+                                        <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            {/* Oven Base Height */}
+                                            <div style={{ background: '#f0f9ff', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #bae6fd' }}>
+                                                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold' }}>Wysokość szafek dolnych (mm)</label>
+                                                <select
+                                                    value={formData.ovenBaseHeight || 720}
+                                                    onChange={handleOvenBaseHeightChange}
+                                                    style={{ width: '100%', padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px' }}
+                                                >
+                                                    <option value={720}>720</option>
+                                                    <option value={760}>760</option>
+                                                    <option value={780}>780</option>
+                                                </select>
+                                            </div>
+
+                                            {/* Oven Height */}
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
+                                                    Wysokość wnęki na piekarnik (mm)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={formData.ovenSpaceHeight}
+                                                    onChange={handleOvenHeightChange}
+                                                    style={{ width: '100%', padding: '0.2rem', backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+                                                    disabled={true}
+                                                />
+                                            </div>
+
+                                            {/* Microwave Height */}
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
+                                                    Wysokość wnęki na mikrofalówkę (mm)
+                                                </label>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.2rem' }}>
+                                                    <input
+                                                        type="range"
+                                                        min={380}
+                                                        max={600}
+                                                        step={10}
+                                                        value={formData.microwaveSpaceHeight || 380}
+                                                        onChange={handleMicrowaveHeightChange}
+                                                        style={{ width: '100%', cursor: 'pointer', margin: 0, padding: 0, outline: 'none' }}
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        min={380}
+                                                        max={600}
+                                                        value={formData.microwaveSpaceHeight || 380}
+                                                        onChange={handleMicrowaveHeightChange}
+                                                        style={{ width: '100%', padding: '0.2rem' }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* --- 1. Główna konfiguracja nawiertów --- */}
+                                            <div style={{ padding: '0.5rem', background: '#fff', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                                <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#444' }}>
+                                                    Główna konfiguracja nawiertów
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('Mocowania zawiasów z lewej')}
+                                                            onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z lewej', e.target.checked)}
+                                                        />
+                                                        Mocowania zawiasów z lewej
+                                                    </label>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('Mocowania zawiasów z prawej')}
+                                                            onChange={(e) => handleConfigUnderChange('Mocowania zawiasów z prawej', e.target.checked)}
+                                                        />
+                                                        Mocowania zawiasów z prawej
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            {/* --- 2. Konfiguracja nawiertów (Przestrzeń nad piekarnikiem) --- */}
+                                            <div style={{ padding: '0.5rem', background: '#eef6ff', borderRadius: '4px', border: '1px solid #cce0ff' }}>
+                                                <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#0056b3' }}>
+                                                    Konfiguracja nawiertów (Przestrzeń nad piekarnikiem)
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configAbove?.some(o => o.toLowerCase().includes('drzwi'))}
+                                                            onChange={(e) => handleConfigAboveChange('Drzwi', e.target.checked)}
+                                                        />
+                                                        Drzwi
+                                                    </label>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: blockActuatorsOven ? 0.4 : 1 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configAbove?.includes('Siłowniki')}
+                                                            onChange={(e) => handleConfigAboveChange('Siłowniki', e.target.checked)}
+                                                            disabled={blockActuatorsOven}
+                                                        />
+                                                        Siłowniki
+                                                        {blockActuatorsOven && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(wymaga wys. ≤ 600 mm)</span>}
+                                                    </label>
+                                                    <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: (formData.configAbove?.some(o => o.toLowerCase().includes('drzwi')) || formData.configAbove?.includes('Siłowniki')) ? 1 : 0.5 }}>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configAbove?.includes('1 półka') || formData.configAbove?.includes('1 Półka')}
+                                                                onChange={(e) => handleConfigAboveChange('1 półka', e.target.checked)}
+                                                                disabled={!(formData.configAbove?.some(o => o.toLowerCase().includes('drzwi')) || formData.configAbove?.includes('Siłowniki'))}
+                                                            />
+                                                            1 Półka
+                                                        </label>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: blockTwoShelvesAbove ? 0.4 : 1 }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configAbove?.includes('2 półki') || formData.configAbove?.includes('2 Półki')}
+                                                                onChange={(e) => handleConfigAboveChange('2 półki', e.target.checked)}
+                                                                disabled={!(formData.configAbove?.some(o => o.toLowerCase().includes('drzwi')) || formData.configAbove?.includes('Siłowniki')) || blockTwoShelvesAbove}
+                                                            />
+                                                            2 Półki
+                                                            {blockTwoShelvesAbove && <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: '0.3rem' }}>(wysokość wnęki &lt; 45 cm)</span>}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* --- 3. Konfiguracja nawiertów (Przestrzeń pod piekarnikiem) --- */}
+                                            <div style={{ padding: '0.5rem', background: '#eef6ff', borderRadius: '4px', border: '1px solid #cce0ff' }}>
+                                                <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#0056b3' }}>
+                                                    Konfiguracja nawiertów (Przestrzeń pod piekarnikiem)
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0056b3', fontWeight: '500' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('Obniżenie piekarnika o 1 szufladę (14 cm)')}
+                                                            onChange={(e) => handleConfigUnderChange('Obniżenie piekarnika o 1 szufladę (14 cm)', e.target.checked)}
+                                                        />
+                                                        Obniżenie piekarnika o 1 szufladę (14 cm)
+                                                    </label>
+                                                    <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #cce0ff', margin: '0.4rem 0' }} />
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.configUnder?.includes('Drzwi')}
+                                                            onChange={(e) => handleConfigUnderChange('Drzwi', e.target.checked)}
+                                                        />
+                                                        Drzwi
+                                                    </label>
+                                                    <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', opacity: formData.configUnder?.includes('Drzwi') ? 1 : 0.5 }}>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes('1 półka')}
+                                                                onChange={(e) => handleConfigUnderChange('1 półka', e.target.checked)}
+                                                                disabled={!formData.configUnder?.includes('Drzwi')}
+                                                            />
+                                                            1 Półka
+                                                        </label>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes('2 półki')}
+                                                                onChange={(e) => handleConfigUnderChange('2 półki', e.target.checked)}
+                                                                disabled={!formData.configUnder?.includes('Drzwi')}
+                                                            />
+                                                            2 Półki
+                                                        </label>
+                                                    </div>
+                                                    <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #cce0ff', margin: '0.4rem 0' }} />
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes('2 szuflady')}
+                                                                onChange={(e) => handleConfigUnderChange('2 szuflady', e.target.checked)}
+                                                            />
+                                                            2 Szuflady
+                                                        </label>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.configUnder?.includes('3 szuflady (2 wysokie jedna niska)') || formData.configUnder?.includes('3 Szuflady (2 wysokie jedna niska)')}
+                                                                onChange={(e) => handleConfigUnderChange('3 szuflady (2 wysokie jedna niska)', e.target.checked)}
+                                                            />
+                                                            3 Szuflady (2 wysokie jedna niska)
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    )}
+                                </>
                             )}
 
                             <div className={styles.elementsList} style={{ marginBottom: '1rem', border: '1px solid #eee', borderRadius: '4px' }}>
@@ -2595,8 +2684,10 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                                     dimensions = `${el.height} x ${el.width}`;
                                                 } else if (name.includes('blenda') || name.includes('zabudowa')) {
                                                     dimensions = `${el.height} x ${el.width}`;
-                                                } else if (name.includes('listwa')) {
+                                                } else if (name.includes('listwa') || name.includes('fartuch')) {
                                                     dimensions = `${el.width} x ${el.height}`;
+                                                } else if (name.includes('blat')) {
+                                                    dimensions = `${el.width} x ${el.depth}`;
                                                 } else {
                                                     dimensions = `${el.width || el.height} x ${el.depth || el.width}`;
                                                 }
@@ -2605,7 +2696,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                                     <tr key={el.id} style={{ borderBottom: '1px solid #eee' }}>
                                                         <td style={{ padding: '0.5rem' }}>{el.name}</td>
                                                         <td style={{ padding: '0.5rem', textAlign: 'right', color: '#666' }}>
-                                                            {(el.width || 0) || (el.height || 0)} x {(el.depth || 0) || (el.width || 0)} mm
+                                                            {dimensions} mm
                                                         </td>
                                                     </tr>
                                                 );
@@ -2676,7 +2767,7 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             </div>
 
             {selectorMode && (
-                <DecorSelector 
+                <DecorSelector
                     title={selectorMode === 'body' ? 'Wybierz dekor korpusu' : 'Wybierz dekor frontów'}
                     onClose={() => setSelectorMode(null)}
                     onSelect={(decor) => {

@@ -17,6 +17,7 @@ interface RoomSceneProps {
     isPreviewMode?: boolean;
     isTechnicalView?: boolean;
     showFrontEdges?: boolean;
+    wallOpacities?: Record<string, number>;
 }
 
 function CameraManager({ isTechnicalView, wallHeight, halfD }: { isTechnicalView: boolean, wallHeight: number, halfD: number }) {
@@ -42,7 +43,8 @@ export default function RoomScene({
     onContextMenu,
     isPreviewMode,
     isTechnicalView,
-    showFrontEdges
+    showFrontEdges,
+    wallOpacities = {}
 }: RoomSceneProps) {
 
     // Room center is [0,0,0], walls are calculated from there
@@ -50,9 +52,20 @@ export default function RoomScene({
     const halfD = roomDimensions.depth / 2;
     const wallHeight = roomDimensions.height;
 
+    const handleWallContextMenu = (id: string, e: any) => {
+        e.stopPropagation();
+        if (onContextMenu) {
+            onContextMenu(id, { x: e.nativeEvent.clientX, y: e.nativeEvent.clientY });
+        }
+    };
+
     return (
         <Canvas 
             shadows 
+            gl={{ 
+                toneMapping: THREE.ACESFilmicToneMapping,
+                toneMappingExposure: 1.0
+            }}
             camera={{ 
                 position: [0, 1500, halfD * 2], 
                 fov: 50,
@@ -62,21 +75,21 @@ export default function RoomScene({
         >
             {/* UI/Lights */}
             <color attach="background" args={["#2a2d32"]} />
-            <ambientLight intensity={0.7} />
-            <hemisphereLight intensity={0.8} groundColor="#444444" color="#ffffff" />
+            <ambientLight intensity={0.2} />
+            <hemisphereLight intensity={0.3} groundColor="#222222" color="#ffffff" />
             <directionalLight
-                position={[5000, 5000, 5000]}
-                intensity={1.8} 
+                position={[2000, 4000, 4000]}
+                intensity={1.5} 
                 castShadow
                 shadow-mapSize={[2048, 2048]}
                 shadow-camera-left={-halfW * 2}
                 shadow-camera-right={halfW * 2}
                 shadow-camera-top={halfD * 2}
                 shadow-camera-bottom={-halfD * 2}
-                shadow-bias={-0.001}
+                shadow-bias={-0.0005}
             />
-            <directionalLight position={[-5000, 2000, -5000]} intensity={1.2} />
-            <pointLight position={[0, wallHeight, 0]} intensity={0.4} color="#fff" />
+            <directionalLight position={[-5000, 2000, 2000]} intensity={0.5} />
+            <pointLight position={[0, wallHeight, 0]} intensity={0.1} color="#fff" />
 
 
 
@@ -110,25 +123,68 @@ export default function RoomScene({
                     const w = roomDimensions.width;
                     const d = roomDimensions.depth;
 
+                    // Helper to render a one-way wall
+                    const renderOneWayWall = (id: string, pos: [number, number, number], size: [number, number, number], planePos: [number, number, number], planeRot: [number, number, number], planeSize: [number, number]) => {
+                        const opacity = wallOpacities[id] ?? 1.0;
+                        return (
+                            <group>
+                                {/* The "Outer" Shell - Box with thickness, controlled by slider */}
+                                <mesh 
+                                    position={pos} 
+                                    receiveShadow 
+                                    castShadow
+                                    onContextMenu={(e) => handleWallContextMenu(id, e)}
+                                >
+                                    <boxGeometry args={size} />
+                                    <meshStandardMaterial 
+                                        color="#b0b0b0" 
+                                        transparent={true} 
+                                        opacity={opacity} 
+                                        depthWrite={opacity > 0.9}
+                                    />
+                                </mesh>
+
+                                {/* The "Inner" Shell - Opaque plane visible ONLY from the inside of the room */}
+                                {/* We use a Plane with default FrontSide and face it towards the center */}
+                                <mesh position={planePos} rotation={planeRot}>
+                                    <planeGeometry args={planeSize} />
+                                    <meshStandardMaterial color="#b0b0b0" roughness={0.8} />
+                                </mesh>
+                            </group>
+                        );
+                    };
+
                     return (
                         <>
                             {/* Back Wall */}
-                            <mesh position={[0, h / 2, -halfD - thickness / 2]} receiveShadow castShadow>
-                                <boxGeometry args={[w + thickness * 2, h, thickness]} />
-                                <meshStandardMaterial color="#b0b0b0" />
-                            </mesh>
+                            {renderOneWayWall(
+                                'wall-back',
+                                [0, h / 2, -halfD - thickness / 2],
+                                [w + thickness * 2, h, thickness],
+                                [0, h / 2, -halfD + 0.5], // Offset slightly inside to avoid Z-fighting
+                                [0, 0, 0],
+                                [w, h]
+                            )}
 
                             {/* Left Wall */}
-                            <mesh position={[-halfW - thickness / 2, h / 2, 0]} receiveShadow castShadow>
-                                <boxGeometry args={[thickness, h, d]} />
-                                <meshStandardMaterial color="#b0b0b0" />
-                            </mesh>
+                            {renderOneWayWall(
+                                'wall-left',
+                                [-halfW - thickness / 2, h / 2, 0],
+                                [thickness, h, d],
+                                [-halfW + 0.5, h / 2, 0],
+                                [0, Math.PI / 2, 0],
+                                [d, h]
+                            )}
 
                             {/* Right Wall */}
-                            <mesh position={[halfW + thickness / 2, h / 2, 0]} receiveShadow castShadow>
-                                <boxGeometry args={[thickness, h, d]} />
-                                <meshStandardMaterial color="#b0b0b0" />
-                            </mesh>
+                            {renderOneWayWall(
+                                'wall-right',
+                                [halfW + thickness / 2, h / 2, 0],
+                                [thickness, h, d],
+                                [halfW - 0.5, h / 2, 0],
+                                [0, -Math.PI / 2, 0],
+                                [d, h]
+                            )}
 
 
 
@@ -212,7 +268,7 @@ export default function RoomScene({
             ))}
 
             <Suspense fallback={null}>
-                <Environment preset="city" />
+                <Environment preset="apartment" blur={0.8} />
             </Suspense>
         </Canvas>
     );

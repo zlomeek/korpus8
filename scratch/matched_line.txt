@@ -1,0 +1,1 @@
+                                            <mesh position={[spacerX, yOffset + (f.offsetY || 0), zOffset]} castShadow receiveShadow material={usePanelMaterial(frontDecorId, f.width, f.height, bodyColor || "#ffffff", true, width, height, 0, yOffset + (f.offsetY || 0) - f.height / 2 + height / 2)}>

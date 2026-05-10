@@ -78,11 +78,6 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions, filte
         </g>
     );
 
-    // Filter cabinets by wall
-    const backWallCabinets = filteredCabinets
-        .filter(c => Math.abs(c.rotation[1]) < 0.1)
-        .sort((a, b) => a.position[0] - b.position[0]);
-
     return (
         <svg
             viewBox={`0 0 ${viewBoxW} ${viewBoxD}`}
@@ -90,10 +85,10 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions, filte
             xmlns="http://www.w3.org/2000/svg"
         >
             {/* Legend / Title */}
-            <text x={padding} y={padding / 2 - 50} fontSize="72" fontWeight="bold" fill="#333">
+            <text x={padding} y={80} fontSize="72" fontWeight="bold" fill="#333">
                 RZUT KUCHNI - WIDOK TECHNICZNY ({
-                    filter === 'lower' ? 'Dół + Słupki' : 
-                    (filter === 'upper-shallow' ? 'Góra płytka + Słupki' : 'Góra głęboka + Słupki')
+                    filter === 'lower' ? 'Dół + Słupki' :
+                        (filter === 'upper-shallow' ? 'Góra płytka + Słupki' : 'Góra głęboka + Słupki')
                 })
             </text>
 
@@ -109,14 +104,13 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions, filte
             />
 
             {/* Walls Context */}
-            <text x={padding + width/2} y={padding - 60} textAnchor="middle" fontSize="36" fontWeight="bold" fill="#999">ŚCIANA TYLNA</text>
-            <text x={padding - 100} y={padding + depth/2} textAnchor="middle" transform={`rotate(-90, ${padding - 100}, ${padding + depth/2})`} fontSize="36" fontWeight="bold" fill="#999">ŚCIANA LEWA</text>
-            <text x={padding + width + 100} y={padding + depth/2} textAnchor="middle" transform={`rotate(90, ${padding + width + 100}, ${padding + depth/2})`} fontSize="36" fontWeight="bold" fill="#999">ŚCIANA PRAWA</text>
+            <text x={padding + width / 2} y={padding - 30} textAnchor="middle" fontSize="36" fontWeight="bold" fill="#999">ŚCIANA TYLNA</text>
+            <text x={padding - 100} y={padding + depth / 2} textAnchor="middle" transform={`rotate(-90, ${padding - 100}, ${padding + depth / 2})`} fontSize="36" fontWeight="bold" fill="#999">ŚCIANA LEWA</text>
+            <text x={padding + width + 100} y={padding + depth / 2} textAnchor="middle" transform={`rotate(90, ${padding + width + 100}, ${padding + depth / 2})`} fontSize="36" fontWeight="bold" fill="#999">ŚCIANA PRAWA</text>
 
             {/* Cabinets */}
             {filteredCabinets.map((cab) => {
                 const cabW = cab.cabinet.width;
-                const cabD = cab.cabinet.depth;
                 const rotation = cab.rotation[1];
                 const isGorna = cab.cabinet.id.includes('gorna');
                 const isLCorner = cab.cabinet.id.endsWith('-90');
@@ -129,13 +123,6 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions, filte
                         const w2 = (cab.cabinet as any).width2 || (cab.cabinet.id.startsWith('gorna-') ? 650 : 900);
                         const d = cab.cabinet.depth;
 
-                        // Local points for L-shape
-                        // A: Back-Left outer corner (-w1/2, -w2/2)
-                        // B: Back-Right outer corner (w1/2, -w2/2)
-                        // C: Back-Right inner edge (w1/2, -w2/2 + d)
-                        // D: Inside corner (-w1/2 + d, -w2/2 + d)
-                        // E: Front-Left inner edge (-w1/2 + d, w2/2)
-                        // F: Front-Left outer corner (-w1/2, w2/2)
                         const points = [
                             `${-w1 / 2},${-w2 / 2}`,
                             `${w1 / 2},${-w2 / 2}`,
@@ -151,20 +138,16 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions, filte
                                 fill={isGorna ? "#f0f9ff" : "#f1f5f9"}
                                 stroke="#000"
                                 strokeWidth="6"
-                                transform={`translate(${mapX(cab.position[0])}, ${mapY(cab.position[2])}) rotate(${(rotation * 180) / Math.PI})`}
+                                transform={`translate(${mapX(cab.position[0])}, ${mapY(cab.position[2])}) rotate(${(-rotation * 180) / Math.PI})`}
                             />
                         );
                     }
 
                     const rects = getCollisionRects(cab.cabinet);
                     const isUpperCorner = cab.cabinet.id === 'gorna-narozna' || cab.cabinet.id === 'gorna-narozna-gleboka';
-                    
+
                     return rects.map((rect, idx) => {
-                        // Ukrywamy ślepe blendy w narożnikach DOLNYCH (na prośbę użytkownika wcześniej), 
-                        // ale w GÓRNYCH je pokazujemy (na nową prośbę użytkownika)
                         if (rect.type === 'blenda' && !isGorna) return null;
-                        
-                        // Ukrywamy front w szafkach górnych narożnych (użytkownik chce tam widzieć tylko blendę)
                         if (rect.type === 'front' && isUpperCorner) return null;
 
                         const localX = rect.x;
@@ -186,7 +169,7 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions, filte
                                 stroke="#000"
                                 strokeWidth={isExtension ? "2" : "6"}
                                 strokeDasharray={isExtension ? "10 5" : "0"}
-                                transform={`translate(${mapX(cab.position[0])}, ${mapY(cab.position[2])}) rotate(${(rotation * 180) / Math.PI})`}
+                                transform={`translate(${mapX(cab.position[0])}, ${mapY(cab.position[2])}) rotate(${(-rotation * 180) / Math.PI})`}
                             />
                         );
                     });
@@ -210,173 +193,186 @@ export default function TechnicalDrawing({ placedCabinets, roomDimensions, filte
                 );
             })}
 
-            {/* Horizontal Dimensions (Widths/Gaps) - BACK WALL */}
-            {backWallCabinets.length > 0 && (
-                <g transform={`translate(0, ${padding - 120})`}>
-                    {(() => {
-                        const first = backWallCabinets[0];
-                        const gap = (first.position[0] - first.cabinet.width / 2) - (-halfW);
-                        if (gap > 5) return <DimensionLine x1={padding} y1={0} x2={mapX(first.position[0] - first.cabinet.width/2)} y2={0} label={`${Math.round(gap)}`} color="#ef4444" fontSize={40} />;
-                        return null;
-                    })()}
+            {/* --- WYMIARY PODSTAWOWE (GABARYTY POMIESZCZENIA) --- */}
+            <DimensionLine 
+                x1={padding} 
+                y1={160} 
+                x2={padding + width} 
+                y2={160} 
+                label={`SZEROKOŚĆ CAŁKOWITA: ${width}`} 
+                color="#334155" 
+                fontSize={44} 
+            />
 
-                    {backWallCabinets.map((cab, i) => {
-                        const next = backWallCabinets[i + 1];
-                        const startX = mapX(cab.position[0] - cab.cabinet.width / 2);
-                        const endX = mapX(cab.position[0] + cab.cabinet.width / 2);
-                        const gapX2 = next ? mapX(next.position[0] - next.cabinet.width / 2) : 0;
-                        const gap = next ? Math.round(gapX2 - endX) : 0;
+            <VerticalDimensionLine 
+                x={padding + width + 280} 
+                y1={padding} 
+                y2={padding + depth} 
+                label={`GŁĘBOKOŚĆ CAŁKOWITA: ${depth}`} 
+                color="#334155" 
+                fontSize={44} 
+                labelOffset={50} 
+            />
 
-                        return (
-                            <React.Fragment key={cab.uuid}>
-                                <DimensionLine x1={startX} y1={0} x2={endX} y2={0} label={`${cab.cabinet.width}`} />
-                                {next && gap > 5 && <DimensionLine x1={endX} y1={0} x2={gapX2} y2={0} label={`${gap}`} color="#ef4444" fontSize={40} />}
-                            </React.Fragment>
-                        );
-                    })}
 
-                    {(() => {
-                        const last = backWallCabinets[backWallCabinets.length - 1];
-                        const gap = halfW - (last.position[0] + last.cabinet.width / 2);
-                        if (gap > 5) return <DimensionLine x1={mapX(last.position[0] + last.cabinet.width/2)} y1={0} x2={padding + width} y2={0} label={`${Math.round(gap)}`} color="#ef4444" fontSize={40} />;
-                        return null;
-                    })()}
-                </g>
-            )}
-            {/* Side Wall Dimensions (LEFT) */}
+            {/* --- ŚCIANA LEWA - Łańcuch szerokości --- */}
             {(() => {
                 const leftWallCabinets = filteredCabinets
-                    .filter(c => Math.abs(c.rotation[1] - Math.PI/2) < 0.1 || Math.abs(c.rotation[1] + Math.PI/2) < 0.1)
-                    .filter(c => Math.abs(c.position[0] - (-halfW + c.cabinet.depth/2)) < 100)
+                    .filter(c => {
+                        const rot = c.rotation[1];
+                        // Szafki obrócone "pionowo" (90, 270, -90, -270 stopni)
+                        const isVertical = Math.abs(Math.sin(rot)) > 0.9;
+                        // Strona lewa (X < 0)
+                        const isLeft = c.position[0] < 0;
+                        return isVertical && isLeft;
+                    })
                     .sort((a, b) => a.position[2] - b.position[2]);
 
                 if (leftWallCabinets.length === 0) return null;
+                const xPos = padding - 180;
 
                 return (
-                    <g transform={`translate(${padding - 120}, 0)`}>
+                    <g>
                         {(() => {
                             const first = leftWallCabinets[0];
-                            const firstW = first.cabinet.width;
-                            const gap = (first.position[2] - firstW / 2) - (-halfD);
-                            if (gap > 5) return <VerticalDimensionLine x={0} y1={padding} y2={mapY(first.position[2] - firstW/2)} label={`${Math.round(gap)}`} color="#ef4444" fontSize={40} labelOffset={-40} />;
+                            const startZ = first.position[2] - first.cabinet.width / 2;
+                            const gap = startZ - (-halfD);
+                            if (gap > 5) return <VerticalDimensionLine x={xPos} y1={padding} y2={mapY(startZ)} label={`${Math.round(gap)}`} color="#ef4444" fontSize={36} labelOffset={-40} />;
                             return null;
                         })()}
+
                         {leftWallCabinets.map((cab, i) => {
                             const next = leftWallCabinets[i + 1];
-                            const cabW = cab.cabinet.width;
-                            const startY = mapY(cab.position[2] - cabW / 2);
-                            const endY = mapY(cab.position[2] + cabW / 2);
-                            const gapY2 = next ? mapY(next.position[2] - next.cabinet.width / 2) : 0;
-                            const gap = next ? Math.round(gapY2 - endY) : 0;
-
-                            return (
-                                <React.Fragment key={cab.uuid}>
-                                    <VerticalDimensionLine x={0} y1={startY} y2={endY} label={`${cabW}`} fontSize={40} labelOffset={-40} />
-                                    {next && gap > 5 && <VerticalDimensionLine x={0} y1={endY} y2={gapY2} label={`${gap}`} color="#ef4444" fontSize={40} labelOffset={-40} />}
-                                </React.Fragment>
-                            );
+                            const startY = mapY(cab.position[2] - cab.cabinet.width / 2);
+                            const endY = mapY(cab.position[2] + cab.cabinet.width / 2);
+                            const items = [
+                                <VerticalDimensionLine key={`w-${cab.uuid}`} x={xPos} y1={startY} y2={endY} label={`${cab.cabinet.width}`} color="#2563eb" fontSize={40} labelOffset={-40} />
+                            ];
+                            if (next) {
+                                const nextStart = mapY(next.position[2] - next.cabinet.width / 2);
+                                const gap = Math.round((next.position[2] - next.cabinet.width / 2) - (cab.position[2] + cab.cabinet.width / 2));
+                                if (gap > 5) items.push(<VerticalDimensionLine key={`g-${cab.uuid}`} x={xPos} y1={endY} y2={nextStart} label={`${gap}`} color="#ef4444" fontSize={36} labelOffset={-40} />);
+                            }
+                            return <React.Fragment key={`group-${cab.uuid}`}>{items}</React.Fragment>;
                         })}
+
                         {(() => {
                             const last = leftWallCabinets[leftWallCabinets.length - 1];
-                            const lastW = last.cabinet.width;
-                            const gap = halfD - (last.position[2] + lastW / 2);
-                            if (gap > 5) return <VerticalDimensionLine x={0} y1={mapY(last.position[2] + lastW/2)} y2={padding + depth} label={`${Math.round(gap)}`} color="#ef4444" fontSize={40} labelOffset={-40} />;
+                            const endZ = last.position[2] + last.cabinet.width / 2;
+                            const gap = halfD - endZ;
+                            if (gap > 5) return <VerticalDimensionLine x={xPos} y1={mapY(endZ)} y2={padding + depth} label={`${Math.round(gap)}`} color="#ef4444" fontSize={36} labelOffset={-40} />;
                             return null;
                         })()}
                     </g>
                 );
             })()}
 
-            {/* Side Wall Dimensions (RIGHT) */}
+            {/* --- ŚCIANA TYLNA (GÓRA) - Łańcuch szerokości --- */}
+            {(() => {
+                const backWallCabinets = filteredCabinets
+                    .filter(c => {
+                        const rot = c.rotation[1];
+                        // Szafki poziome (0, 180 stopni)
+                        const isHorizontal = Math.abs(Math.cos(rot)) > 0.9;
+                        // Strona górna (Z < 0)
+                        const isBack = c.position[2] < 0;
+                        return isHorizontal && isBack;
+                    })
+                    .sort((a, b) => a.position[0] - b.position[0]);
+
+                if (backWallCabinets.length === 0) return null;
+                const yPos = 260;
+
+                return (
+                    <g>
+                        {(() => {
+                            const first = backWallCabinets[0];
+                            const startX = first.position[0] - first.cabinet.width / 2;
+                            const gap = startX - (-halfW);
+                            if (gap > 5) return <DimensionLine x1={padding} y1={yPos} x2={mapX(startX)} y2={yPos} label={`${Math.round(gap)}`} color="#ef4444" fontSize={36} />;
+                            return null;
+                        })()}
+
+                        {backWallCabinets.map((cab, i) => {
+                            const next = backWallCabinets[i + 1];
+                            const startX = mapX(cab.position[0] - cab.cabinet.width / 2);
+                            const endX = mapX(cab.position[0] + cab.cabinet.width / 2);
+                            
+                            const items = [
+                                <DimensionLine key={`w-${cab.uuid}`} x1={startX} y1={yPos} x2={endX} y2={yPos} label={`${cab.cabinet.width}`} color="#2563eb" fontSize={40} />
+                            ];
+
+                            if (next) {
+                                const nextStart = mapX(next.position[0] - next.cabinet.width / 2);
+                                const gap = Math.round((next.position[0] - next.cabinet.width / 2) - (cab.position[0] + cab.cabinet.width / 2));
+                                if (gap > 5) items.push(<DimensionLine key={`g-${cab.uuid}`} x1={endX} y1={yPos} x2={nextStart} y2={yPos} label={`${gap}`} color="#ef4444" fontSize={36} />);
+                            }
+                            return <React.Fragment key={`group-${cab.uuid}`}>{items}</React.Fragment>;
+                        })}
+
+                        {/* Do ściany prawej */}
+                        {(() => {
+                            const last = backWallCabinets[backWallCabinets.length - 1];
+                            const endX = last.position[0] + last.cabinet.width / 2;
+                            const gap = halfW - endX;
+                            if (gap > 5) return <DimensionLine x1={mapX(endX)} y1={yPos} x2={padding + width} y2={yPos} label={`${Math.round(gap)}`} color="#ef4444" fontSize={36} />;
+                            return null;
+                        })()}
+                    </g>
+                );
+            })()}
+
+            {/* --- ŚCIANA PRAWA - Łańcuch szerokości --- */}
             {(() => {
                 const rightWallCabinets = filteredCabinets
-                    .filter(c => Math.abs(c.rotation[1] - Math.PI/2) < 0.1 || Math.abs(c.rotation[1] + Math.PI/2) < 0.1)
-                    .filter(c => Math.abs(c.position[0] - (halfW - c.cabinet.depth/2)) < 100)
+                    .filter(c => {
+                        const rot = c.rotation[1];
+                        // Szafki obrócone "pionowo" (90, 270 stopni)
+                        const isVertical = Math.abs(Math.sin(rot)) > 0.9;
+                        // Strona prawa (X > 0)
+                        const isRight = c.position[0] > 0;
+                        return isVertical && isRight;
+                    })
                     .sort((a, b) => a.position[2] - b.position[2]);
 
                 if (rightWallCabinets.length === 0) return null;
+                const xPos = padding + width + 180;
 
                 return (
-                    <g transform={`translate(${padding + width + 120}, 0)`}>
+                    <g>
+                        {/* Od ściany tylnej */}
                         {(() => {
                             const first = rightWallCabinets[0];
-                            const firstW = first.cabinet.width;
-                            const gap = (first.position[2] - firstW / 2) - (-halfD);
-                            if (gap > 5) return <VerticalDimensionLine x={0} y1={padding} y2={mapY(first.position[2] - firstW/2)} label={`${Math.round(gap)}`} color="#ef4444" fontSize={40} labelOffset={40} />;
+                            const startZ = first.position[2] - first.cabinet.width / 2;
+                            const gap = startZ - (-halfD);
+                            if (gap > 5) return <VerticalDimensionLine x={xPos} y1={padding} y2={mapY(startZ)} label={`${Math.round(gap)}`} color="#ef4444" fontSize={36} labelOffset={40} />;
                             return null;
                         })()}
+
                         {rightWallCabinets.map((cab, i) => {
                             const next = rightWallCabinets[i + 1];
-                            const cabW = cab.cabinet.width;
-                            const startY = mapY(cab.position[2] - cabW / 2);
-                            const endY = mapY(cab.position[2] + cabW / 2);
-                            const gapY2 = next ? mapY(next.position[2] - next.cabinet.width / 2) : 0;
-                            const gap = next ? Math.round(gapY2 - endY) : 0;
-
-                            return (
-                                <React.Fragment key={cab.uuid}>
-                                    <VerticalDimensionLine x={0} y1={startY} y2={endY} label={`${cabW}`} fontSize={40} labelOffset={40} />
-                                    {next && gap > 5 && <VerticalDimensionLine x={0} y1={endY} y2={gapY2} label={`${gap}`} color="#ef4444" fontSize={40} labelOffset={40} />}
-                                </React.Fragment>
-                            );
+                            const startY = mapY(cab.position[2] - cab.cabinet.width / 2);
+                            const endY = mapY(cab.position[2] + cab.cabinet.width / 2);
+                            const items = [
+                                <VerticalDimensionLine key={`w-${cab.uuid}`} x={xPos} y1={startY} y2={endY} label={`${cab.cabinet.width}`} color="#2563eb" fontSize={40} labelOffset={40} />
+                            ];
+                            if (next) {
+                                const nextStart = mapY(next.position[2] - next.cabinet.width / 2);
+                                const gap = Math.round((next.position[2] - next.cabinet.width / 2) - (cab.position[2] + cab.cabinet.width / 2));
+                                if (gap > 5) items.push(<VerticalDimensionLine key={`g-${cab.uuid}`} x={xPos} y1={endY} y2={nextStart} label={`${gap}`} color="#ef4444" fontSize={36} labelOffset={40} />);
+                            }
+                            return <React.Fragment key={`group-${cab.uuid}`}>{items}</React.Fragment>;
                         })}
+
+                        {/* Do końca frontu */}
                         {(() => {
                             const last = rightWallCabinets[rightWallCabinets.length - 1];
-                            const lastW = last.cabinet.width;
-                            const gap = halfD - (last.position[2] + lastW / 2);
-                            if (gap > 5) return <VerticalDimensionLine x={0} y1={mapY(last.position[2] + lastW/2)} y2={padding + depth} label={`${Math.round(gap)}`} color="#ef4444" fontSize={40} labelOffset={40} />;
+                            const endZ = last.position[2] + last.cabinet.width / 2;
+                            const gap = halfD - endZ;
+                            if (gap > 5) return <VerticalDimensionLine x={xPos} y1={mapY(endZ)} y2={padding + depth} label={`${Math.round(gap)}`} color="#ef4444" fontSize={36} labelOffset={40} />;
                             return null;
                         })()}
                     </g>
-                );
-            })()}
-
-            {/* Depth Rulers (Left: Max Depth, Right: Up to 3 Smallest) */}
-            {backWallCabinets.length > 0 && (() => {
-                // Get unique depth + posZ configurations
-                const depthMap = new Map<string, { d: number, posZ: number }>();
-                backWallCabinets.forEach(c => {
-                    const isL = c.cabinet.id.endsWith('-90');
-                    const w2 = (c.cabinet as any).width2 || 900;
-                    const d = isL ? w2 : c.cabinet.depth;
-                    const key = `${d}_${Math.round(c.position[2])}`;
-                    if (!depthMap.has(key)) {
-                        depthMap.set(key, { d, posZ: c.position[2] });
-                    }
-                });
-
-                const uniqueInfos = Array.from(depthMap.values());
-                const sortedByDepth = [...uniqueInfos].sort((a, b) => a.d - b.d);
-                
-                // Max for the left
-                const maxDepthInfo = [...uniqueInfos].sort((a, b) => b.d - a.d)[0];
-                // 3 smallest for the right
-                const smallest3 = sortedByDepth.slice(0, 3);
-
-                const renderRuler = (info: { d: number, posZ: number }, xOffset: number) => {
-                    const backWallGap = Math.round((info.posZ - info.d / 2) - (-halfD));
-                    const frontSpace = Math.round(halfD - (info.posZ + info.d / 2));
-                    return (
-                        <g transform={`translate(${xOffset}, 0)`}>
-                            {backWallGap > 5 && <VerticalDimensionLine x={0} y1={padding} y2={mapY(info.posZ - info.d/2)} label={`${backWallGap}`} color="#ef4444" fontSize={36} />}
-                            <VerticalDimensionLine x={0} y1={mapY(info.posZ - info.d/2)} y2={mapY(info.posZ + info.d/2)} label={`${info.d}`} color="#2563eb" fontSize={36} />
-                            {frontSpace > 5 && <VerticalDimensionLine x={0} y1={mapY(info.posZ + info.d/2)} y2={padding + depth} label={`${frontSpace}`} color="#ef4444" fontSize={36} />}
-                        </g>
-                    );
-                };
-
-                return (
-                    <>
-                        {/* LEFT RULER: MAX DEPTH */}
-                        {renderRuler(maxDepthInfo, padding - 280)}
-                        
-                        {/* RIGHT RULERS: 3 SMALLEST */}
-                        {smallest3.map((info, i) => (
-                            <React.Fragment key={`${info.d}_${info.posZ}`}>
-                                {renderRuler(info, padding + width + 280 + i * 130)}
-                            </React.Fragment>
-                        ))}
-                    </>
                 );
             })()}
 

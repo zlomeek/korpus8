@@ -163,7 +163,6 @@ export const cabinetTemplates: Cabinet[] = [
     standardWidths: [710, 800, 900, 1000],
     standardHeights: [720, 760, 780],
     configurationOptions: [
-      "Drzwi łamane",
       "Para drzwi",
       "1 półka",
       "2 półki",
@@ -183,7 +182,6 @@ export const cabinetTemplates: Cabinet[] = [
     standardWidths: [620, 650, 750, 800, 850],
     standardHeights: [500, 600, 700, 800, 900, 1000, 1100, 1200],
     configurationOptions: [
-      "Drzwi łamane",
       "Para drzwi",
       "1 półka",
       "2 półki",

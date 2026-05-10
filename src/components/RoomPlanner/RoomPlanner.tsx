@@ -8,6 +8,8 @@ import CabinetForm from "@/components/CabinetForm";
 import TechnicalDrawing from "@/components/RoomPlanner/TechnicalDrawing";
 import ElevationDrawing from "@/components/RoomPlanner/ElevationDrawing";
 import CartPanel from "@/components/RoomPlanner/CartPanel";
+import DecorSelector from "@/components/DecorSelector";
+import { Decor } from "@/data/decors";
 
 export interface PlacedCabinet {
     uuid: string;
@@ -36,7 +38,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
     const [isTechnicalView, setIsTechnicalView] = useState(false);
     const [isElevationView, setIsElevationView] = useState(false);
     const [technicalFilter, setTechnicalFilter] = useState<'lower' | 'upper-shallow' | 'upper-deep'>('lower');
-    const [currentElevationWall, setCurrentElevationWall] = useState<'left' | 'back' | 'right'>('back');
+    const [currentElevationWall, setCurrentElevationWall] = useState<'left' | 'back' | 'right' | 'front'>('back');
     const [showTechnicalBanner, setShowTechnicalBanner] = useState(false);
     const [showElevationBanner, setShowElevationBanner] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, cabUuid: string } | null>(null);
@@ -46,6 +48,14 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
     const [blendaHeight, setBlendaHeight] = useState<number>(200);
     const [showFrontEdges, setShowFrontEdges] = useState(false);
     const [isCartOpen, setIsCartOpen] = useState(false);
+    const [globalDecorMode, setGlobalDecorMode] = useState<'body' | 'front' | null>(null);
+    const [selectionDecorMode, setSelectionDecorMode] = useState<'body' | 'front' | null>(null);
+    const [isHudVisible, setIsHudVisible] = useState(true);
+    const [wallOpacities, setWallOpacities] = useState<Record<string, number>>({
+        'wall-back': 1.0,
+        'wall-left': 1.0,
+        'wall-right': 1.0
+    });
 
     useEffect(() => {
         if (isTechnicalView) {
@@ -74,22 +84,20 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
             } else if (e.key.toLowerCase() === 'z') {
                 setIsTechnicalView(prev => !prev);
                 setIsElevationView(false);
-            } else if (e.key.toLowerCase() === 'c') {
-                setIsElevationView(prev => !prev);
-                setIsTechnicalView(false);
+                // } else if (e.key.toLowerCase() === 'c') {
+                //     setIsElevationView(prev => !prev);
+                //     setIsTechnicalView(false);
             } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-                // Cycle elevation wall
-                setIsElevationView(isElevation => {
-                    if (isElevation) {
-                        setCurrentElevationWall(prev => {
-                            const walls: ('left' | 'back' | 'right')[] = ['left', 'back', 'right'];
-                            const idx = walls.indexOf(prev);
-                            if (e.key === 'ArrowRight') return walls[(idx + 1) % 3];
-                            return walls[(idx - 1 + 3) % 3];
-                        });
-                    }
-                    return isElevation;
-                });
+                if (isElevationView) {
+                    setCurrentElevationWall(prev => {
+                        const walls: ('left' | 'back' | 'right' | 'front')[] = ['left', 'back', 'right', 'front'];
+                        const idx = walls.indexOf(prev);
+                        if (e.key === 'ArrowRight') return walls[(idx + 1) % 4];
+                        return walls[(idx - 1 + 4) % 4];
+                    });
+                }
+            } else if (e.key === ']') {
+                setIsHudVisible(prev => !prev);
             }
         };
         window.addEventListener('click', handleGlobalClick);
@@ -98,7 +106,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
             window.removeEventListener('click', handleGlobalClick);
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, []);
+    }, [isElevationView, isTechnicalView]);
 
     // Group templates by category
     const categories = [
@@ -127,7 +135,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
 
         const hoodCutoutWidth = (template as any).hoodCutoutWidth || Math.max(0, template.width - 76);
         const hoodCutoutOffset = (template as any).hoodCutoutOffset !== undefined ? (template as any).hoodCutoutOffset : Math.round((template.width - 36 - hoodCutoutWidth) / 2);
-        
+
         const initialElements = generateFixedElements(
             template.width,
             template.height,
@@ -248,6 +256,116 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
         setPlacedCabinets(prev => [...prev, newPlacedCabinet]);
         setSelectedCabinetIds([newUuid]);
         setContextMenu(null);
+    };
+
+    const handleSetGlobalDecor = (decor: Decor) => {
+        if (!globalDecorMode) return;
+        setPlacedCabinets(prev => prev.map(cab => {
+            const c = cab.cabinet as any;
+            const allowFullTopOption = ['dolna-standard', 'dolna-narozna'].includes(c.id);
+            const forceFullTop = !allowFullTopOption && c.id !== 'dolna-zlew';
+            const isFullTop = c.isFullTop !== undefined ? c.isFullTop : forceFullTop;
+
+            const updatedElements = generateFixedElements(
+                c.width,
+                c.height,
+                c.depth,
+                isFullTop,
+                c.configuration,
+                c.id,
+                c.cornerOrientation,
+                c.frontWidth,
+                c.fridgeSpaceHeight,
+                c.ovenSpaceHeight,
+                c.configUnder,
+                c.configAbove,
+                c.microwaveSpaceHeight,
+                c.ovenBaseHeight,
+                c.width2,
+                c.hasFronts,
+                c.frontMaterial,
+                c.splitCargoFront,
+                c.hoodHeight,
+                c.hoodCutoutSide,
+                c.hoodCutoutOffset,
+                c.hoodCutoutWidth,
+                c.hoodCutoutDepth,
+                c.hoodHoleSide,
+                c.hoodHoleOffset,
+                c.hasHoodHoleTop,
+                c.hasShelfHoles,
+                c.shelfHoleCount,
+                c.extendFrontDown || false,
+                c.depthRogowa || false,
+                c.pipeSegmentsEnabled
+            );
+
+            return {
+                ...cab,
+                cabinet: {
+                    ...cab.cabinet,
+                    [globalDecorMode === 'body' ? 'bodyDecorId' : 'frontDecorId']: decor.id,
+                    elements: updatedElements
+                }
+            };
+        }));
+        setGlobalDecorMode(null);
+    };
+
+    const handleSetSelectionDecor = (decor: Decor) => {
+        if (!selectionDecorMode) return;
+        setPlacedCabinets(prev => prev.map(cab => {
+            if (!selectedCabinetIds.includes(cab.uuid)) return cab;
+
+            const c = cab.cabinet as any;
+            const allowFullTopOption = ['dolna-standard', 'dolna-narozna'].includes(c.id);
+            const forceFullTop = !allowFullTopOption && c.id !== 'dolna-zlew';
+            const isFullTop = c.isFullTop !== undefined ? c.isFullTop : forceFullTop;
+
+            const updatedElements = generateFixedElements(
+                c.width,
+                c.height,
+                c.depth,
+                isFullTop,
+                c.configuration,
+                c.id,
+                c.cornerOrientation,
+                c.frontWidth,
+                c.fridgeSpaceHeight,
+                c.ovenSpaceHeight,
+                c.configUnder,
+                c.configAbove,
+                c.microwaveSpaceHeight,
+                c.ovenBaseHeight,
+                c.width2,
+                c.hasFronts,
+                c.frontMaterial,
+                c.splitCargoFront,
+                c.hoodHeight,
+                c.hoodCutoutSide,
+                c.hoodCutoutOffset,
+                c.hoodCutoutWidth,
+                c.hoodCutoutDepth,
+                c.hoodHoleSide,
+                c.hoodHoleOffset,
+                c.hasHoodHoleTop,
+                c.hasShelfHoles,
+                c.shelfHoleCount,
+                c.extendFrontDown || false,
+                c.depthRogowa || false,
+                c.pipeSegmentsEnabled
+            );
+
+            return {
+                ...cab,
+                cabinet: {
+                    ...cab.cabinet,
+                    [selectionDecorMode === 'body' ? 'bodyDecorId' : 'frontDecorId']: decor.id,
+                    elements: updatedElements
+                }
+            };
+        }));
+        setSelectionDecorMode(null);
     };
 
     const handleToggleLock = (uuids: string[]) => {
@@ -1065,322 +1183,338 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
     return (
         <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', backgroundColor: '#1a1a1a', color: '#fff' }}>
             {/* Sidebar / Library */}
-            <div style={{ width: '300px', background: '#2c2c2c', display: 'flex', flexDirection: 'column', borderRight: '1px solid #444', zIndex: 10 }}>
-                <div style={{ padding: '1rem', borderBottom: '1px solid #444', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Biblioteka Szafek</h2>
-                        <button onClick={onReset} style={{ background: 'transparent', border: 'none', color: '#ff6b6b', cursor: 'pointer', textDecoration: 'underline' }}>
-                            Nowy Pokój
-                        </button>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button onClick={handleExportProject} style={{ flex: 1, padding: '0.4rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                            Zapisz Projekt 💾
-                        </button>
-                        <label style={{ flex: 1, padding: '0.4rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', textAlign: 'center' }}>
-                            Wczytaj 📂
-                            <input type="file" accept=".korpus,.json" style={{ display: 'none' }} onChange={handleImportProject} />
-                        </label>
-                    </div>
-                </div>
-
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    {categories.map((cat) => (
-                        <div key={cat.name}>
-                            <h3 style={{ fontSize: '0.9rem', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', borderBottom: '1px solid #333', paddingBottom: '0.3rem' }}>
-                                {cat.name}
-                            </h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                {cat.templates.map((template) => (
-                                    <div
-                                        key={template.id}
-                                        style={{
-                                            background: '#3a3a3a',
-                                            padding: '0.8rem',
-                                            borderRadius: '6px',
-                                            cursor: 'pointer',
-                                            border: '1px solid #555',
-                                            transition: 'background 0.2s'
-                                        }}
-                                        onClick={() => handleAddCabinetToRoom(template)}
-                                        onMouseEnter={(e) => e.currentTarget.style.background = '#4a4a4a'}
-                                        onMouseLeave={(e) => e.currentTarget.style.background = '#3a3a3a'}
-                                    >
-                                        <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{template.name}</div>
-                                        <div style={{ fontSize: '0.75rem', color: '#bbb', marginTop: '0.2rem' }}>
-                                            {template.width}x{template.height}x{template.depth} mm
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-
-                    {/* Blendy section */}
-                    <div>
-                        <h3 style={{ fontSize: '0.9rem', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', borderBottom: '1px solid #333', paddingBottom: '0.3rem' }}>
-                            Blendy
-                        </h3>
-                        <div style={{ background: '#3a3a3a', padding: '0.8rem', borderRadius: '6px', border: '1px solid #555', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <div style={{ fontSize: '0.8rem', color: '#bbb' }}>Blenda z płyty meblowej 18mm</div>
-                            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.8rem', color: '#ccc' }}>
-                                Szerokość (mm)
-                                <input
-                                    type="number"
-                                    min={20} max={2000} step={1}
-                                    value={blendaWidth}
-                                    onChange={e => setBlendaWidth(Number(e.target.value))}
-                                    style={{ padding: '0.3rem 0.5rem', background: '#222', color: '#fff', border: '1px solid #555', borderRadius: '4px', fontSize: '0.85rem' }}
-                                />
-                            </label>
-                            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.8rem', color: '#ccc' }}>
-                                Wysokość (mm)
-                                <input
-                                    type="number"
-                                    min={20} max={2600} step={1}
-                                    value={blendaHeight}
-                                    onChange={e => setBlendaHeight(Number(e.target.value))}
-                                    style={{ padding: '0.3rem 0.5rem', background: '#222', color: '#fff', border: '1px solid #555', borderRadius: '4px', fontSize: '0.85rem' }}
-                                />
-                            </label>
-                            <button
-                                onClick={handleAddBlenda}
-                                style={{ padding: '0.45rem', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
-                                onMouseEnter={e => e.currentTarget.style.background = '#818cf8'}
-                                onMouseLeave={e => e.currentTarget.style.background = '#6366f1'}
-                            >
-                                + Dodaj blendę
+            {isHudVisible && (
+                <div style={{ width: '300px', minWidth: '300px', flexShrink: 0, background: '#2c2c2c', display: 'flex', flexDirection: 'column', borderRight: '1px solid #444', zIndex: 10 }}>
+                    <div style={{ padding: '1rem', borderBottom: '1px solid #444', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Biblioteka Szafek</h2>
+                            <button onClick={onReset} style={{ background: 'transparent', border: 'none', color: '#ff6b6b', cursor: 'pointer', textDecoration: 'underline' }}>
+                                Nowy Pokój
                             </button>
                         </div>
-                    </div>
-                </div>
-
-                {/* Properties panel for Selected Cabinets */}
-                {selectedCabinetIds.length > 0 && (
-                    <div style={{ padding: '1rem', borderTop: '1px solid #444', background: '#242424' }}>
-                        <h3 style={{ fontSize: '1rem', margin: '0 0 1rem 0', color: '#4ade80' }}>
-                            {selectedCabinetIds.length === 1 ? 'Zaznaczona szafka' : `Zaznaczono szafek: ${selectedCabinetIds.length}`}
-                        </h3>
-
-                        {selectedCabinetIds.length === 2 && gaps && (gaps.x > 0 || gaps.z > 0) && (
-                            <div style={{ padding: '0.8rem', marginBottom: '1rem', background: '#1e3a8a', borderRadius: '6px', border: '1px solid #3b82f6' }}>
-                                <div style={{ fontSize: '0.8rem', color: '#bfdbfe', marginBottom: '0.4rem' }}>Wolna przestrzeń między szafkami:</div>
-                                {gaps.x > 0 && <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fff', marginBottom: '0.2rem' }}>↔ Oś szerokości (X): {gaps.x} mm</div>}
-                                {gaps.z > 0 && <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fff' }}>↕ Oś głębokości (Z): {gaps.z} mm</div>}
-                            </div>
-                        )}
-
-                        <div style={{ marginBottom: '1rem' }}>
-                            {selectedCabinetIds.length === 1 && (
-                                <button
-                                    onClick={() => setIsConfiguratorOpen(true)}
-                                    style={{ width: '100%', padding: '0.6rem', background: '#4ade80', color: '#1a1a1a', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '0.5rem' }}
-                                >
-                                    Konfiguruj szafkę 🛠️
-                                </button>
-                            )}
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={selectedCabinetIds.every(id => (placedCabinets.find(c => c.uuid === id)?.cabinet as any).hasFronts)}
-                                    onChange={(e) => handleToggleFronts(selectedCabinetIds, e.target.checked)}
-                                />
-                                Fronty zewnętrzne
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button onClick={handleExportProject} style={{ flex: 1, padding: '0.4rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                Zapisz Projekt
+                            </button>
+                            <label style={{ flex: 1, padding: '0.4rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', textAlign: 'center' }}>
+                                Wczytaj
+                                <input type="file" accept=".korpus,.json" style={{ display: 'none' }} onChange={handleImportProject} />
                             </label>
                         </div>
+                    </div>
 
-                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-                            <button
-                                onClick={() => rotateSelected('left')}
-                                style={{ flex: 1, padding: '0.5rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                            >
-                                Obróć ↺
-                            </button>
-                            <button
-                                onClick={() => rotateSelected('right')}
-                                style={{ flex: 1, padding: '0.5rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                            >
-                                Obróć ↻
-                            </button>
-                        </div>
-
-                        {selectedCabinetIds.length === 1 && (() => {
-                            const selCab = placedCabinets.find(c => c.uuid === selectedCabinetIds[0]);
-                            const isFloatingType = selCab?.cabinet.id.startsWith('gorna-') || selCab?.cabinet.id.startsWith('blat-') || selCab?.cabinet.id === 'fartuch-kuchenny' || selCab?.cabinet.id === 'blenda-meblowa';
-                            if (!isFloatingType || !selCab) return null;
-                            return (
-                                <div style={{ marginBottom: '1rem' }}>
-                                    <label style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.9rem', color: '#ccc' }}>
-                                        Wysokość od podłogi (mm)
-                                        <input
-                                            type="number"
-                                            value={Math.round(selCab.position[1])}
-                                            onChange={(e) => {
-                                                handleUpdateCabinet(selCab.uuid, [selCab.position[0], Number(e.target.value), selCab.position[2]], selCab.rotation);
-                                            }}
-                                            style={{ width: '100%', padding: '0.4rem', background: '#333', color: '#fff', border: '1px solid #555', borderRadius: '4px' }}
-                                        />
-                                    </label>
-                                </div>
-                            );
-                        })()}
-
+                    <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #444', background: '#333', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#aaa', textTransform: 'uppercase', fontWeight: 'bold' }}>Ustawienia globalne</div>
                         <button
-                            onClick={() => handleToggleLock(selectedCabinetIds)}
-                            style={{
-                                width: '100%', padding: '0.4rem',
-                                background: '#333', color: '#fff',
-                                border: '1px solid #555', borderRadius: '4px',
-                                cursor: 'pointer', marginBottom: '0.5rem',
-                                fontSize: '0.85rem'
+                            onClick={() => {
+                                const allVisible = placedCabinets.every(c => c.cabinet.hasFronts);
+                                handleToggleFronts(placedCabinets.map(c => c.uuid), !allVisible);
                             }}
+                            style={{ width: '100%', padding: '0.6rem', background: '#4b5563', color: '#fff', border: '1px solid #6b7280', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
                         >
-                            {selectedCabinetIds.every(id => placedCabinets.find(c => c.uuid === id)?.isLocked) ? '🔓 Odblokuj pozycję' : '🔒 Zablokuj pozycję'}
-                        </button>
-
-                        <button
-                            onClick={() => handleRemoveCabinet(selectedCabinetIds)}
-                            style={{ width: '100%', padding: '0.5rem', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer' }}
-                        >
-                            Usuń {selectedCabinetIds.length > 1 ? 'zaznaczone' : ''} ze sceny
+                            Pokaż/ukryj wszystkie fronty
                         </button>
                     </div>
-                )}
-            </div>
+
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        {categories.map((cat) => (
+                            <div key={cat.name}>
+                                <h3 style={{ fontSize: '0.9rem', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', borderBottom: '1px solid #333', paddingBottom: '0.3rem' }}>
+                                    {cat.name}
+                                </h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {cat.templates.map((template) => (
+                                        <div
+                                            key={template.id}
+                                            style={{
+                                                background: '#3a3a3a',
+                                                padding: '0.8rem',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                border: '1px solid #555',
+                                                transition: 'background 0.2s'
+                                            }}
+                                            onClick={() => handleAddCabinetToRoom(template)}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = '#4a4a4a'}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = '#3a3a3a'}
+                                        >
+                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{template.name}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#bbb', marginTop: '0.2rem' }}>
+                                                {template.width}x{template.height}x{template.depth} mm
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* Blendy section */}
+                        <div>
+                            <h3 style={{ fontSize: '0.9rem', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', borderBottom: '1px solid #333', paddingBottom: '0.3rem' }}>
+                                Blendy
+                            </h3>
+                            <div style={{ background: '#3a3a3a', padding: '0.8rem', borderRadius: '6px', border: '1px solid #555', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <div style={{ fontSize: '0.8rem', color: '#bbb' }}>Blenda z płyty meblowej 18mm</div>
+                                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.8rem', color: '#ccc' }}>
+                                    Szerokość (mm)
+                                    <input
+                                        type="number"
+                                        min={20} max={2000} step={1}
+                                        value={blendaWidth}
+                                        onChange={e => setBlendaWidth(Number(e.target.value))}
+                                        style={{ padding: '0.3rem 0.5rem', background: '#222', color: '#fff', border: '1px solid #555', borderRadius: '4px', fontSize: '0.85rem' }}
+                                    />
+                                </label>
+                                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.8rem', color: '#ccc' }}>
+                                    Wysokość (mm)
+                                    <input
+                                        type="number"
+                                        min={20} max={2600} step={1}
+                                        value={blendaHeight}
+                                        onChange={e => setBlendaHeight(Number(e.target.value))}
+                                        style={{ padding: '0.3rem 0.5rem', background: '#222', color: '#fff', border: '1px solid #555', borderRadius: '4px', fontSize: '0.85rem' }}
+                                    />
+                                </label>
+                                <button
+                                    onClick={handleAddBlenda}
+                                    style={{ padding: '0.45rem', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#818cf8'}
+                                    onMouseLeave={e => e.currentTarget.style.background = '#6366f1'}
+                                >
+                                    + Dodaj blendę
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Properties panel for Selected Cabinets */}
+                    {selectedCabinetIds.length > 0 && (
+                        <div style={{ padding: '1rem', borderTop: '1px solid #444', background: '#242424' }}>
+                            <h3 style={{ fontSize: '1rem', margin: '0 0 1rem 0', color: '#4ade80' }}>
+                                {selectedCabinetIds.length === 1 ? 'Zaznaczona szafka' : `Zaznaczono szafek: ${selectedCabinetIds.length}`}
+                            </h3>
+
+                            {selectedCabinetIds.length === 2 && gaps && (gaps.x > 0 || gaps.z > 0) && (
+                                <div style={{ padding: '0.8rem', marginBottom: '1rem', background: '#1e3a8a', borderRadius: '6px', border: '1px solid #3b82f6' }}>
+                                    <div style={{ fontSize: '0.8rem', color: '#bfdbfe', marginBottom: '0.4rem' }}>Wolna przestrzeń między szafkami:</div>
+                                    {gaps.x > 0 && <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fff', marginBottom: '0.2rem' }}>Oś szerokości (X): {gaps.x} mm</div>}
+                                    {gaps.z > 0 && <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fff' }}>Oś głębokości (Z): {gaps.z} mm</div>}
+                                </div>
+                            )}
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                {selectedCabinetIds.length === 1 && (
+                                    <button
+                                        onClick={() => setIsConfiguratorOpen(true)}
+                                        style={{ width: '100%', padding: '0.6rem', background: '#4ade80', color: '#1a1a1a', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '0.5rem' }}
+                                    >
+                                        Konfiguruj szafkę
+                                    </button>
+                                )}
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedCabinetIds.every(id => (placedCabinets.find(c => c.uuid === id)?.cabinet as any).hasFronts)}
+                                        onChange={(e) => handleToggleFronts(selectedCabinetIds, e.target.checked)}
+                                    />
+                                    Fronty zewnętrzne
+                                </label>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+                                <button
+                                    onClick={() => setSelectionDecorMode('body')}
+                                    style={{ width: '100%', padding: '0.6rem', background: '#333', color: '#fff', border: '1px solid #555', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
+                                >
+                                    Materiał korpusu
+                                </button>
+                                <button
+                                    onClick={() => setSelectionDecorMode('front')}
+                                    style={{ width: '100%', padding: '0.6rem', background: '#333', color: '#fff', border: '1px solid #555', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
+                                >
+                                    Materiał frontu
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                                <button
+                                    onClick={() => rotateSelected('left')}
+                                    style={{ flex: 1, padding: '0.5rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                >
+                                    Obróć ↺
+                                </button>
+                                <button
+                                    onClick={() => rotateSelected('right')}
+                                    style={{ flex: 1, padding: '0.5rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                >
+                                    Obróć ↻
+                                </button>
+                            </div>
+
+                            {selectedCabinetIds.length === 1 && (() => {
+                                const selCab = placedCabinets.find(c => c.uuid === selectedCabinetIds[0]);
+                                const isFloatingType = selCab?.cabinet.id.startsWith('gorna-') || selCab?.cabinet.id.startsWith('blat-') || selCab?.cabinet.id === 'fartuch-kuchenny' || selCab?.cabinet.id === 'blenda-meblowa';
+                                if (!isFloatingType || !selCab) return null;
+                                return (
+                                    <div style={{ marginBottom: '1rem' }}>
+                                        <label style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.9rem', color: '#ccc' }}>
+                                            Wysokość od podłogi (mm)
+                                            <input
+                                                type="number"
+                                                value={Math.round(selCab.position[1])}
+                                                onChange={(e) => {
+                                                    handleUpdateCabinet(selCab.uuid, [selCab.position[0], Number(e.target.value), selCab.position[2]], selCab.rotation);
+                                                }}
+                                                style={{ width: '100%', padding: '0.4rem', background: '#333', color: '#fff', border: '1px solid #555', borderRadius: '4px' }}
+                                            />
+                                        </label>
+                                    </div>
+                                );
+                            })()}
+
+                            <button
+                                onClick={() => handleToggleLock(selectedCabinetIds)}
+                                style={{
+                                    width: '100%', padding: '0.4rem',
+                                    background: '#333', color: '#fff',
+                                    border: '1px solid #555', borderRadius: '4px',
+                                    cursor: 'pointer', marginBottom: '0.5rem',
+                                    fontSize: '0.85rem'
+                                }}
+                            >
+                                {selectedCabinetIds.every(id => placedCabinets.find(c => c.uuid === id)?.isLocked) ? 'Odblokuj pozycję' : 'Zablokuj pozycję'}
+                            </button>
+
+                            <button
+                                onClick={() => handleRemoveCabinet(selectedCabinetIds)}
+                                style={{ width: '100%', padding: '0.5rem', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer' }}
+                            >
+                                Usuń {selectedCabinetIds.length > 1 ? 'zaznaczone' : ''} ze sceny
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Main 3D Viewport */}
             <div style={{ flex: 1, position: 'relative' }}>
                 {/* Top Center Toolbar */}
-                <div style={{
-                    position: 'absolute',
-                    top: '20px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 1000,
-                    display: 'flex',
-                    gap: '12px',
-                    alignItems: 'center',
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    padding: '8px 20px',
-                    borderRadius: '40px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                    border: '1px solid #ddd',
-                    backdropFilter: 'blur(4px)'
-                }}>
-                    <label style={{
+                {isHudVisible && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '20px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        zIndex: 1000,
                         display: 'flex',
+                        gap: '12px',
                         alignItems: 'center',
-                        gap: '8px',
-                        cursor: 'pointer',
-                        fontWeight: '600',
-                        fontSize: '0.9rem',
-                        color: '#333',
-                        whiteSpace: 'nowrap'
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        padding: '8px 20px',
+                        borderRadius: '40px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                        border: '1px solid #ddd',
+                        backdropFilter: 'blur(4px)'
                     }}>
-                        <input
-                            type="checkbox"
-                            checked={showFrontEdges}
-                            onChange={(e) => setShowFrontEdges(e.target.checked)}
-                            style={{
-                                width: '18px',
-                                height: '18px',
-                                cursor: 'pointer',
-                                accentColor: '#22c55e'
-                            }}
-                        />
-                        Krawędzie frontów
-                    </label>
-
-                    <div style={{ width: '1px', height: '20px', background: '#ddd' }} />
-
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                            onClick={() => setIsTechnicalView(prev => !prev)}
-                            style={{
-                                padding: '6px 12px',
-                                borderRadius: '20px',
-                                border: 'none',
-                                background: isTechnicalView ? '#22c55e' : '#f3f4f6',
-                                color: isTechnicalView ? '#fff' : '#666',
-                                fontSize: '0.8rem',
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            📐 Techniczny (Z)
-                        </button>
-                        <button
-                            onClick={() => setIsElevationView(prev => !prev)}
-                            style={{
-                                padding: '6px 12px',
-                                borderRadius: '20px',
-                                border: 'none',
-                                background: isElevationView ? '#3b82f6' : '#f3f4f6',
-                                color: isElevationView ? '#fff' : '#666',
-                                fontSize: '0.8rem',
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            📏 Elewacja (C)
-                        </button>
-                        <button
-                            onClick={() => setIsPreviewMode(prev => !prev)}
-                            style={{
-                                padding: '6px 12px',
-                                borderRadius: '20px',
-                                border: 'none',
-                                background: isPreviewMode ? '#8b5cf6' : '#f3f4f6',
-                                color: isPreviewMode ? '#fff' : '#666',
-                                fontSize: '0.8rem',
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            👁️ Podgląd (X)
-                        </button>
-                    </div>
-
-                    <div style={{ width: '1px', height: '20px', background: '#ddd' }} />
-
-                    {/* Przycisk koszyka */}
-                    <button
-                        onClick={() => setIsCartOpen(prev => !prev)}
-                        title="Wycena projektu"
-                        style={{
-                            padding: '6px 14px',
-                            borderRadius: '20px',
-                            border: 'none',
-                            background: isCartOpen ? '#f59e0b' : '#f3f4f6',
-                            color: isCartOpen ? '#fff' : '#666',
-                            fontSize: '0.82rem',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
+                        <label style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '5px',
-                        }}
-                    >
-                        🛒
-                        {placedCabinets.length > 0 && (
-                            <span style={{
-                                background: '#ef4444',
-                                color: '#fff',
-                                borderRadius: '999px',
-                                fontSize: '0.65rem',
-                                fontWeight: 800,
-                                padding: '1px 5px',
-                                lineHeight: '1.4',
-                            }}>
-                                {placedCabinets.length}
-                            </span>
-                        )}
-                    </button>
-                </div>
+                            gap: '8px',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            fontSize: '0.9rem',
+                            color: '#333',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            <input
+                                type="checkbox"
+                                checked={showFrontEdges}
+                                onChange={(e) => setShowFrontEdges(e.target.checked)}
+                                style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    cursor: 'pointer',
+                                    accentColor: '#22c55e'
+                                }}
+                            />
+                            Krawędzie frontów
+                        </label>
+
+                        <div style={{ width: '1px', height: '20px', background: '#ddd' }} />
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={() => setIsTechnicalView(prev => !prev)}
+                                style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '20px',
+                                    border: 'none',
+                                    background: isTechnicalView ? '#22c55e' : '#f3f4f6',
+                                    color: isTechnicalView ? '#fff' : '#666',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Techniczny (Z)
+                            </button>
+                            <button
+                                onClick={() => setIsPreviewMode(prev => !prev)}
+                                style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '20px',
+                                    border: 'none',
+                                    background: isPreviewMode ? '#8b5cf6' : '#f3f4f6',
+                                    color: isPreviewMode ? '#fff' : '#666',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Podgląd (X)
+                            </button>
+                        </div>
+
+                        <div style={{ width: '1px', height: '20px', background: '#ddd' }} />
+
+                        {/* Przycisk koszyka */}
+                        <button
+                            onClick={() => setIsCartOpen(prev => !prev)}
+                            title="Wycena projektu"
+                            style={{
+                                padding: '6px 14px',
+                                borderRadius: '20px',
+                                border: 'none',
+                                background: isCartOpen ? '#f59e0b' : '#f3f4f6',
+                                color: isCartOpen ? '#fff' : '#666',
+                                fontSize: '0.82rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                            }}
+                        >
+                            Koszyk
+                            {placedCabinets.length > 0 && (
+                                <span style={{
+                                    background: '#ef4444',
+                                    color: '#fff',
+                                    borderRadius: '999px',
+                                    fontSize: '0.65rem',
+                                    fontWeight: 800,
+                                    padding: '1px 5px',
+                                    lineHeight: '1.4',
+                                }}>
+                                    {placedCabinets.length}
+                                </span>
+                            )}
+                        </button>
+                    </div>
+                )}
                 <RoomScene
                     roomDimensions={roomDimensions}
                     placedCabinets={placedCabinets}
@@ -1391,6 +1525,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                     isPreviewMode={isPreviewMode}
                     isTechnicalView={isTechnicalView}
                     showFrontEdges={showFrontEdges}
+                    wallOpacities={wallOpacities}
                 />
             </div>
 
@@ -1400,11 +1535,12 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                     <TechnicalDrawing placedCabinets={placedCabinets} roomDimensions={roomDimensions} filter={technicalFilter} />
 
                     {/* Filter Controls */}
+
+
                     <div style={{
                         position: 'absolute',
-                        top: '110px',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
+                        bottom: '40px',
+                        right: '40px',
                         display: 'flex',
                         background: 'rgba(255,255,255,0.9)',
                         padding: '6px',
@@ -1458,7 +1594,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                             alignItems: 'center',
                             gap: '12px'
                         }}>
-                            <span style={{ fontSize: '1.4rem' }}>📐</span>
+                            <span></span>
                             WIDOK TECHNICZNY (Wciśnij Z aby wyjść)
                         </div>
                     )}
@@ -1493,38 +1629,13 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                             alignItems: 'center',
                             gap: '12px'
                         }}>
-                            <span style={{ fontSize: '1.4rem' }}>📏</span>
+                            <span></span>
                             WIDOK Z PRZODU ({currentElevationWall.toUpperCase()}) - Zmień ścianę ← →
                         </div>
                     )}
                 </div>
             )}
 
-            {/* Preview Mode Notification Banner */}
-            {isPreviewMode && (
-                <div style={{
-                    position: 'absolute',
-                    top: '20px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    background: 'rgba(59, 130, 246, 0.9)',
-                    color: '#fff',
-                    padding: '10px 30px',
-                    borderRadius: '30px',
-                    fontWeight: 'bold',
-                    fontSize: '1.1rem',
-                    boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-                    zIndex: 2000,
-                    border: '2px solid rgba(255,255,255,0.2)',
-                    pointerEvents: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px'
-                }}>
-                    <span style={{ fontSize: '1.4rem' }}>👁️</span>
-                    TRYB PODGLĄDU (Wciśnij X aby wyjść)
-                </div>
-            )}
 
             {/* Context Menu */}
             {contextMenu && (
@@ -1543,33 +1654,63 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <ContextButton
-                        label="Konfiguruj szafkę 🛠️"
-                        onClick={() => {
-                            setSelectedCabinetIds([contextMenu.cabUuid]);
-                            setIsConfiguratorOpen(true);
-                            setContextMenu(null);
-                        }}
-                    />
-                    <ContextButton
-                        label="Duplikuj 📑"
-                        onClick={() => handleDuplicateCabinet(contextMenu.cabUuid)}
-                    />
-                    <ContextButton
-                        label="Obróć o 90° ↻"
-                        onClick={() => {
-                            const targets = selectedCabinetIds.includes(contextMenu.cabUuid) ? selectedCabinetIds : [contextMenu.cabUuid];
-                            if (!selectedCabinetIds.includes(contextMenu.cabUuid)) {
-                                setSelectedCabinetIds([contextMenu.cabUuid]);
-                            }
-                            rotateSelected('right');
-                            setContextMenu(null);
-                        }}
-                    />
+                    {contextMenu.cabUuid.startsWith('wall-') ? (
+                        <>
+                            <div style={{ padding: '8px 16px', borderBottom: '1px solid #444', marginBottom: '4px' }}>
+                                <div style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '8px' }}>Przezroczystość ściany</div>
+                                <input 
+                                    type="range" 
+                                    min="0" max="1" step="0.05" 
+                                    value={wallOpacities[contextMenu.cabUuid] || 1.0}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        setWallOpacities(prev => ({ ...prev, [contextMenu.cabUuid]: val }));
+                                    }}
+                                    style={{ width: '100%', accentColor: '#3b82f6', cursor: 'pointer' }}
+                                />
+                                <div style={{ fontSize: '0.75rem', textAlign: 'right', marginTop: '4px', color: '#3b82f6' }}>
+                                    {Math.round((wallOpacities[contextMenu.cabUuid] || 1.0) * 100)}%
+                                </div>
+                            </div>
+                            <ContextButton 
+                                label="Zresetuj widok ściany"
+                                onClick={() => {
+                                    setWallOpacities(prev => ({ ...prev, [contextMenu.cabUuid]: 1.0 }));
+                                    setContextMenu(null);
+                                }}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <ContextButton
+                                label="Konfiguruj szafkę"
+                                onClick={() => {
+                                    setSelectedCabinetIds([contextMenu.cabUuid]);
+                                    setIsConfiguratorOpen(true);
+                                    setContextMenu(null);
+                                }}
+                            />
+                            <ContextButton
+                                label="Duplikuj"
+                                onClick={() => handleDuplicateCabinet(contextMenu.cabUuid)}
+                            />
+                            <ContextButton
+                                label="Obróć o 90°"
+                                onClick={() => {
+                                    const targets = selectedCabinetIds.includes(contextMenu.cabUuid) ? selectedCabinetIds : [contextMenu.cabUuid];
+                                    if (!selectedCabinetIds.includes(contextMenu.cabUuid)) {
+                                        setSelectedCabinetIds([contextMenu.cabUuid]);
+                                    }
+                                    rotateSelected('right');
+                                    setContextMenu(null);
+                                }}
+                            />
+                        </>
+                    )}
                     {(() => {
                         const cab = placedCabinets.find(c => c.uuid === contextMenu.cabUuid);
                         if (!cab) return null;
-                        
+
                         const isListwaItem = cab.cabinet.id === 'gorna-listwa-miedzy-szafkowa';
                         const isStandard540Item = cab.cabinet.id === 'dolna-standard' && cab.cabinet.depth === 540;
 
@@ -1577,7 +1718,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
 
                         return (
                             <ContextButton
-                                label="Wysuń o 18mm 📏"
+                                label="Wysuń o 18mm"
                                 onClick={() => {
                                     const targets = selectedCabinetIds.includes(contextMenu.cabUuid) ? selectedCabinetIds : [contextMenu.cabUuid];
                                     handleMoveForward(targets, 18);
@@ -1586,47 +1727,18 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                             />
                         );
                     })()}
-                    <ContextButton
-                        label={placedCabinets.find(c => c.uuid === contextMenu.cabUuid)?.isLocked ? "Odblokuj 🔓" : "Zablokuj 🔒"}
-                        onClick={() => {
-                            const targets = selectedCabinetIds.includes(contextMenu.cabUuid) ? selectedCabinetIds : [contextMenu.cabUuid];
-                            handleToggleLock(targets);
-                        }}
-                    />
+                    {!contextMenu.cabUuid.startsWith('wall-') && (
+                        <ContextButton
+                            label={placedCabinets.find(c => c.uuid === contextMenu.cabUuid)?.isLocked ? "Odblokuj" : "Zablokuj"}
+                            onClick={() => {
+                                const targets = selectedCabinetIds.includes(contextMenu.cabUuid) ? selectedCabinetIds : [contextMenu.cabUuid];
+                                handleToggleLock(targets);
+                            }}
+                        />
+                    )}
+
                     {(() => {
-                        const cab = placedCabinets.find(c => c.uuid === contextMenu.cabUuid);
-                        if (!cab || cab.cabinet.id.startsWith('gorna-')) return null;
-
-                        // Check if against wall
-                        const { position, rotation, cabinet } = cab;
-                        const rotY = rotation[1];
-                        const effDepth = cabinet.id.endsWith('-90') ? ((cabinet as any).width2 || 900) : cabinet.depth;
-
-                        const worldX = position[0] - (effDepth / 2) * Math.sin(rotY);
-                        const worldZ = position[2] - (effDepth / 2) * Math.cos(rotY);
-
-                        const margin = 10;
-                        const roomHalfW = roomDimensions.width / 2;
-                        const roomHalfD = roomDimensions.depth / 2;
-
-                        const isAgainstWall =
-                            Math.abs(worldZ - (-roomHalfD)) < margin ||
-                            Math.abs(worldX - (-roomHalfW)) < margin ||
-                            Math.abs(worldX - roomHalfW) < margin;
-
-                        if (!isAgainstWall) return null;
-
-                        return (
-                            <ContextButton
-                                label="Odsuń o 5cm od ściany 📏"
-                                onClick={() => {
-                                    const targets = selectedCabinetIds.includes(contextMenu.cabUuid) ? selectedCabinetIds : [contextMenu.cabUuid];
-                                    handleMoveAwayFromWall(targets);
-                                }}
-                            />
-                        );
-                    })()}
-                    {(() => {
+                        if (contextMenu.cabUuid.startsWith('wall-')) return null;
                         const targets = selectedCabinetIds.includes(contextMenu.cabUuid) ? selectedCabinetIds : [contextMenu.cabUuid];
                         const targetCabs = placedCabinets.filter(c => targets.includes(c.uuid));
 
@@ -1640,7 +1752,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                         if (targets.length > 0 && allBaseCabinets) {
                             return (
                                 <ContextButton
-                                    label="Połóż dopasowany Blat ✨"
+                                    label="Połóż dopasowany Blat"
                                     onClick={() => {
                                         handleAddSharedCountertop(targets);
                                         setContextMenu(null);
@@ -1753,7 +1865,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                                 />
                                                 {isPodszafkowa && (
                                                     <ContextButton
-                                                        label="Przedłużenie pod szafkę narożną L (L) 📐"
+                                                        label="Przedłużenie pod szafkę narożną L (L)"
                                                         onClick={() => { }}
                                                         submenu={(
                                                             <>
@@ -1767,12 +1879,12 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                                 )}
                                                 {isPodszafkowa && (
                                                     <ContextButton
-                                                        label="Przedłuż pod okap (L) 📐"
+                                                        label="Przedłuż pod okap (L)"
                                                         onClick={() => { setExtensionPrompt({ uuids: targets, direction: 'left' }); setContextMenu(null); }}
                                                     />
                                                 )}
                                                 <ContextButton
-                                                    label="Skróć o 18mm (L) 📐"
+                                                    label="Skróć o 18mm (L)"
                                                     onClick={() => { handleTrimStrip(targets, 'left'); setContextMenu(null); }}
                                                 />
                                                 <div style={{ height: '1px', background: '#333', margin: '4px 0' }} />
@@ -1782,7 +1894,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                                 />
                                                 {isPodszafkowa && (
                                                     <ContextButton
-                                                        label="Przedłużenie pod szafkę narożną L (P) 📐"
+                                                        label="Przedłużenie pod szafkę narożną L (P)"
                                                         onClick={() => { }}
                                                         submenu={(
                                                             <>
@@ -1796,19 +1908,19 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                                 )}
                                                 {isPodszafkowa && (
                                                     <ContextButton
-                                                        label="Przedłuż pod okap (P) 📐"
+                                                        label="Przedłuż pod okap (P)"
                                                         onClick={() => { setExtensionPrompt({ uuids: targets, direction: 'right' }); setContextMenu(null); }}
                                                     />
                                                 )}
                                                 <ContextButton
-                                                    label="Skróć o 18mm (P) 📐"
+                                                    label="Skróć o 18mm (P)"
                                                     onClick={() => { handleTrimStrip(targets, 'right'); setContextMenu(null); }}
                                                 />
                                                 {isPodszafkowa && (
                                                     <>
                                                         <div style={{ height: '1px', background: '#333', margin: '4px 0' }} />
                                                         <ContextButton
-                                                            label="Dodaj fartuch wzdłuż ściany 🧱"
+                                                            label="Dodaj fartuch wzdłuż ściany"
                                                             onClick={() => { handleAddFartuch(targetCabs); setContextMenu(null); }}
                                                         />
                                                     </>
@@ -1826,8 +1938,8 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                 <>
                                     <div style={{ height: '1px', background: '#444', margin: '4px 0' }} />
                                     <ContextButton
-                                        label="Przedłuż nad szafkę rogową 📐"
-                                        onClick={() => {}}
+                                        label="Przedłuż nad szafkę rogową"
+                                        onClick={() => { }}
                                         submenu={(
                                             <>
                                                 <ContextButton label="W lewo (L)" onClick={() => { handleExtendCountertop(targets, 'left', 618); setContextMenu(null); }} />
@@ -1836,8 +1948,8 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                         )}
                                     />
                                     <ContextButton
-                                        label="Poszerz o 18mm 📐"
-                                        onClick={() => {}}
+                                        label="Poszerz o 18mm"
+                                        onClick={() => { }}
                                         submenu={(
                                             <>
                                                 <ContextButton label="Z lewej (L)" onClick={() => { handleExtendCountertop(targets, 'left', 18); setContextMenu(null); }} />
@@ -1846,8 +1958,8 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                         )}
                                     />
                                     <ContextButton
-                                        label="Poszerz o 2cm 📐"
-                                        onClick={() => {}}
+                                        label="Poszerz o 2cm"
+                                        onClick={() => { }}
                                         submenu={(
                                             <>
                                                 <ContextButton label="Z lewej (L)" onClick={() => { handleExtendCountertop(targets, 'left', 20); setContextMenu(null); }} />
@@ -1856,8 +1968,8 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                         )}
                                     />
                                     <ContextButton
-                                        label="Skróć o 18mm 📏"
-                                        onClick={() => {}}
+                                        label="Skróć o 18mm"
+                                        onClick={() => { }}
                                         submenu={(
                                             <>
                                                 <ContextButton label="Z lewej (L)" onClick={() => { handleTrimCountertop(targets, 'left', 18); setContextMenu(null); }} />
@@ -1866,8 +1978,8 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                         )}
                                     />
                                     <ContextButton
-                                        label="Utnij 60cm (do narożnika) ✂️"
-                                        onClick={() => {}}
+                                        label="Utnij 60cm (do narożnika)"
+                                        onClick={() => { }}
                                         submenu={(
                                             <>
                                                 <ContextButton label="Z lewej (L)" onClick={() => { handleTrimCountertop(targets, 'left'); setContextMenu(null); }} />
@@ -1876,9 +1988,16 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                         )}
                                     />
                                     <ContextButton
-                                        label="Przesuń do tyłu o 18mm 📏"
+                                        label="Przesuń do tyłu o 18mm"
                                         onClick={() => {
                                             handleMoveForward(targets, -18);
+                                            setContextMenu(null);
+                                        }}
+                                    />
+                                    <ContextButton
+                                        label="Przesuń do tyłu o 20mm"
+                                        onClick={() => {
+                                            handleMoveForward(targets, -20);
                                             setContextMenu(null);
                                         }}
                                     />
@@ -1886,7 +2005,7 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                         <>
                                             <div style={{ height: '1px', background: '#555', margin: '4px 0' }} />
                                             <ContextButton
-                                                label="Łączenie na łyżwę 🪚"
+                                                label="Łączenie na łyżwę"
                                                 onClick={() => {
                                                     setLyzwaCabUuid(contextMenu.cabUuid);
                                                     setContextMenu(null);
@@ -1905,14 +2024,14 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                                     <div style={{ height: '1px', background: '#555', margin: '4px 0' }} />
                                     <h4 style={{ margin: '4px 12px', fontSize: '0.7rem', color: '#f59e0b', textTransform: 'uppercase' }}>Edycja fartucha</h4>
                                     <ContextButton
-                                        label="Skróć 18mm z lewej ✂️"
+                                        label="Skróć 18mm z lewej"
                                         onClick={() => {
                                             handleTrimFartuch(targets, 'left');
                                             setContextMenu(null);
                                         }}
                                     />
                                     <ContextButton
-                                        label="Skróć 18mm z prawej ✂️"
+                                        label="Skróć 18mm z prawej"
                                         onClick={() => {
                                             handleTrimFartuch(targets, 'right');
                                             setContextMenu(null);
@@ -1925,22 +2044,26 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                         return null;
                     })()}
                     <div style={{ height: '1px', background: '#444', margin: '4px 0' }} />
-                    <ContextButton
-                        label="Usuń szafkę 🗑️"
-                        color="#ef4444"
-                        onClick={() => {
-                            const targets = selectedCabinetIds.includes(contextMenu.cabUuid) ? selectedCabinetIds : [contextMenu.cabUuid];
-                            handleRemoveCabinet(targets);
-                            setContextMenu(null);
-                        }}
-                    />
+                    {!contextMenu.cabUuid.startsWith('wall-') && (
+                        <ContextButton
+                            label="Usuń szafkę"
+                            color="#ef4444"
+                            onClick={() => {
+                                const targets = selectedCabinetIds.includes(contextMenu.cabUuid) ? selectedCabinetIds : [contextMenu.cabUuid];
+                                handleRemoveCabinet(targets);
+                                setContextMenu(null);
+                            }}
+                        />
+                    )}
                 </div>
             )}
 
             {/* Overlay hint */}
-            <div style={{ position: 'absolute', top: '1rem', left: '320px', background: 'rgba(0,0,0,0.6)', padding: '0.5rem 1rem', borderRadius: '20px', pointerEvents: 'none' }}>
-                <span style={{ fontSize: '0.85rem' }}>Przeciągaj szafki myszą (strzałki). Kliknij z CTRL by przesunąć góra/dół. Prawy przycisk myszy obraca kamerę.</span>
-            </div>
+            {isHudVisible && (
+                <div style={{ position: 'absolute', top: '1rem', left: isHudVisible ? '320px' : '20px', background: 'rgba(0,0,0,0.6)', padding: '0.5rem 1rem', borderRadius: '20px', pointerEvents: 'none', transition: 'left 0.3s' }}>
+                    <span style={{ fontSize: '0.85rem' }}>Przeciągaj szafki myszą (strzałki). Kliknij z CTRL by przesunąć góra/dół. Prawy przycisk myszy obraca kamerę.</span>
+                </div>
+            )}
 
             {/* Lyzwa Panel */}
             {lyzwaCabUuid && (() => {
@@ -2011,6 +2134,23 @@ export default function RoomPlanner({ roomDimensions, onReset }: RoomPlannerProp
                 <CartPanel
                     placedCabinets={placedCabinets}
                     onClose={() => setIsCartOpen(false)}
+                />
+            )}
+            {/* Global Decor Selector */}
+            {globalDecorMode && (
+                <DecorSelector
+                    title={globalDecorMode === 'body' ? "Wybierz kolor dla wszystkich korpusów" : "Wybierz kolor dla wszystkich frontów"}
+                    onSelect={handleSetGlobalDecor}
+                    onClose={() => setGlobalDecorMode(null)}
+                />
+            )}
+
+            {/* Selection Decor Selector */}
+            {selectionDecorMode && (
+                <DecorSelector
+                    title={selectionDecorMode === 'body' ? "Wybierz materiał korpusu dla zaznaczonych" : "Wybierz materiał frontu dla zaznaczonych"}
+                    onSelect={handleSetSelectionDecor}
+                    onClose={() => setSelectionDecorMode(null)}
                 />
             )}
         </div>
@@ -2086,9 +2226,9 @@ function LyzwaPanel({
 
     const LABELS: Record<CutType, string> = {
         'none': '— Brak',
-        'lyzwa-male': '📤 Męska',
-        'lyzwa-female': '📤 Męska (frez)',
-        'lyzwa-female-corner': '📐 Żeńska (narożna 60cm)',
+        'lyzwa-male': 'Męska',
+        'lyzwa-female': 'Męska (frez)',
+        'lyzwa-female-corner': 'Żeńska (narożna 60cm)',
     };
 
     const EdgeSelector = ({ label, value, onChange }: { label: string; value: CutType; onChange: (v: CutType) => void }) => (
@@ -2129,7 +2269,7 @@ function LyzwaPanel({
             onClick={e => e.stopPropagation()}
         >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 style={{ margin: 0, fontSize: '1rem', color: '#f59e0b' }}>🪚 Łączenie na łyżwę</h3>
+                <h3 style={{ margin: 0, fontSize: '1rem', color: '#f59e0b' }}>Łączenie na łyżwę</h3>
                 <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
             </div>
 
@@ -2223,7 +2363,7 @@ function ExtensionModal({
                 onClick={e => e.stopPropagation()}
             >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h3 style={{ margin: 0, fontSize: '1rem', color: '#f59e0b' }}>📐 Przedłużenie ({direction === 'left' ? 'L' : 'P'})</h3>
+                    <h3 style={{ margin: 0, fontSize: '1rem', color: '#f59e0b' }}>Przedłużenie ({direction === 'left' ? 'L' : 'P'})</h3>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
                 </div>
 
