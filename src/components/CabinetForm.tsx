@@ -237,6 +237,18 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
         return (remaining / spaces) >= 150;
     };
 
+    const getGolaLabel = (config: string[]) => {
+        const has3Drawers = config.some(o => o.toLowerCase().includes('3 szuflady'));
+        const has2Drawers = config.some(o => o.toLowerCase().includes('2 szuflady'));
+        const has1Drawer = config.some(o => o.toLowerCase().includes('1 szuflada'));
+        const hasDoors = config.some(o => o.toLowerCase().includes('drzwi') || o.toLowerCase().includes('para drzwi'));
+
+        if (has3Drawers) return "Listwa korytkowa(PEKA) 1x podblatowa 2x miedzy szafkowa";
+        if (has2Drawers) return "Listwa korytkowa(PEKA) 1x podblatowa 1x miedzy szafkowa";
+        if (has1Drawer || hasDoors) return "Listwa korytkowa(PEKA) 1x podblatowa";
+        return null;
+    };
+
     // Filter available configuration options based on width
     const getFilteredOptions = (width: number, hCutoutWidth?: number, hCutoutOffset?: number) => {
         if (!cabinet.configurationOptions) return [];
@@ -528,7 +540,10 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
             const isNawiertyPrawe = option === 'Mocowania zawiasów z prawej';
 
             if (checked) {
-                if (isDrawer && option !== 'Obniżenie piekarnika o 1 szufladę (14 cm)') {
+                if (option.startsWith('Listwa korytkowa(PEKA)')) {
+                    newConfig = newConfig.filter(o => !o.startsWith('Listwa korytkowa(PEKA)'));
+                    newConfig.push(option);
+                } else if (isDrawer && option !== 'Obniżenie piekarnika o 1 szufladę (14 cm)') {
                     // Exclusive with Door, Shelf, Cargo, and other Drawers
                     newConfig = newConfig.filter(o => !o.toLowerCase().includes('drzwi') && !o.toLowerCase().includes('półk') && !customOpts.includes(o));
 
@@ -602,11 +617,27 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                 }
             } else {
                 // Unchecking
-                newConfig = newConfig.filter(o => o !== option);
+                if (option.startsWith('Listwa korytkowa(PEKA)')) {
+                    newConfig = newConfig.filter(o => !o.startsWith('Listwa korytkowa(PEKA)'));
+                } else {
+                    newConfig = newConfig.filter(o => o !== option);
+                }
 
                 // If unchecking Door or Strut, uncheck Shelves and Hinges
                 if (isDoor || isStrut) {
                     newConfig = newConfig.filter(o => !o.toLowerCase().includes('półk') && !o.includes('Mocowania zawiasów'));
+                }
+            }
+
+            // Sync Gola label if anything else changed
+            const hasGola = newConfig.some(o => o.startsWith('Listwa korytkowa(PEKA)'));
+            if (hasGola) {
+                const correctLabel = getGolaLabel(newConfig);
+                if (correctLabel) {
+                    newConfig = newConfig.map(o => o.startsWith('Listwa korytkowa(PEKA)') ? correctLabel : o);
+                } else {
+                    // If no valid parent for Gola, remove it
+                    newConfig = newConfig.filter(o => !o.startsWith('Listwa korytkowa(PEKA)'));
                 }
             }
 
@@ -1662,17 +1693,34 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                                     )}
 
                                                     {allowFullTopOption && (
-                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', fontSize: '0.95rem' }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={formData.isFullTop || false}
-                                                                onChange={handleFullTopChange}
-                                                                style={{ width: '18px', height: '18px' }}
-                                                            />
-                                                            <span style={{ color: '#334155' }}>Pełny wieniec górny (płyta 18mm)</span>
-                                                        </label>
-                                                    )}
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', fontSize: '0.95rem' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={formData.isFullTop || false}
+                                                                    onChange={handleFullTopChange}
+                                                                    style={{ width: '18px', height: '18px' }}
+                                                                />
+                                                                <span style={{ color: '#334155' }}>Pełny wieniec górny (płyta 18mm)</span>
+                                                            </label>
 
+                                                            {cabinet.id === 'dolna-standard' && (() => {
+                                                                const label = getGolaLabel(formData.configUnder || []);
+                                                                if (!label) return null;
+                                                                return (
+                                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', fontSize: '0.95rem', background: '#f0f9ff', padding: '0.6rem', borderRadius: '6px', border: '1px solid #bae6fd' }}>
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={formData.configUnder?.some(o => o.startsWith('Listwa korytkowa(PEKA)'))}
+                                                                            onChange={(e) => handleConfigUnderChange(label, e.target.checked)}
+                                                                            style={{ width: '18px', height: '18px' }}
+                                                                        />
+                                                                        <span style={{ color: '#0369a1', fontWeight: 'bold' }}>{label}</span>
+                                                                    </label>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    )}
                                                     {cabinet.id.startsWith('gorna-') && (
                                                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', fontSize: '0.95rem' }}>
                                                             <input
@@ -2750,6 +2798,9 @@ export default function CabinetForm({ cabinet, settings, onClose, onAddToCart }:
                                 <p>Korpus ({calculation.totalM2Body.toFixed(3)} m²): {calculation.boardCost.toFixed(2)} PLN</p>
                                 <p>Plecy ({calculation.totalM2Back.toFixed(3)} m²): {calculation.backCost.toFixed(2)} PLN</p>
                                 <p>Nogi ({calculation.legsCount} szt.): {calculation.legsCost.toFixed(2)} PLN</p>
+                                {calculation.golaCost > 0 && (
+                                    <p>Listwy korytkowe: {calculation.golaCost.toFixed(2)} PLN</p>
+                                )}
                                 <p className={styles.total}>Razem: {calculation.total.toFixed(2)} PLN</p>
                             </div>
 

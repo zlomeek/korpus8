@@ -316,7 +316,7 @@ export const cabinetTemplates: Cabinet[] = [
       { id: "bok-lewy", name: "Bok lewy", height: 700, depth: 330 },
       { id: "bok-prawy", name: "Bok prawy", height: 700, depth: 330 },
       // Najniższy wieniec pod okapem
-      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 330 }, 
+      { id: "wieniec-dolny", name: "Wieniec dolny", width: 564, depth: 330 },
       // Wieniec środkowy (nad okapem) - otwor 150mm bedzie wyciety w parametrach ale nie jest tu bezposrednio widoczny
       { id: "wieniec-srodkowy", name: "Wieniec środkowy", width: 564, depth: 330 },
       // Wieniec górny

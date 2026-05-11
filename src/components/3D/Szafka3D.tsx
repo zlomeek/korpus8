@@ -111,6 +111,118 @@ function usePanelMaterial(
     }, [texture, defaultColor, decor]);
 }
 
+// Komponent listwy korytkowej PEKA
+function GolaProfile({ variant, width, height, yOffset, depth, bodyColor }: { variant: 'L' | 'C', width: number, height: number, yOffset: number, depth: number, bodyColor: string }) {
+    const shape = useMemo(() => {
+        const s = new THREE.Shape();
+        if (variant === 'L') {
+            // Listwa podblatowa (L) - CCW winding
+            const h = height; // Zazwyczaj 50
+            s.moveTo(0, 0); // Bottom Front
+            s.lineTo(25, 0); // Bottom Back
+            s.lineTo(25, h); // Top Back
+            s.lineTo(22, h); // Pionowa gruboĹ›Ä‡
+            s.lineTo(22, 3);  // RĂłg wewnÄ™trzny
+            s.lineTo(0, 3);   // Frontowy lip
+            s.lineTo(0, 0);
+        } else {
+            // Listwa miÄ™dzy szafkowa (C) - CCW winding, wysokoĹ›Ä‡ z parametru (64)
+            const h = height; 
+            s.moveTo(0, 0);   // Bottom Front
+            s.lineTo(25, 0);  // Bottom Back
+            s.lineTo(25, h);  // Top Back
+            s.lineTo(0, h);   // Top Front
+            s.lineTo(0, h - 3); // GruboĹ›Ä‡ gĂłrnego lipa
+            s.lineTo(22, h - 3); // WewnÄ™trzny rĂłg gĂłra
+            s.lineTo(22, 3);     // Pionowa Ĺ›cianka wewnÄ™trzna
+            s.lineTo(0, 3);      // WewnÄ™trzny rĂłg dĂłĹ‚
+            s.lineTo(0, 0);
+        }
+        return s;
+    }, [variant, height]);
+
+    const material = useMemo(() => new THREE.MeshStandardMaterial({
+        color: "#1a1a1a", // Satynowa czerĹ„
+        metalness: 0.7,
+        roughness: 0.3,
+    }), []);
+
+    // ObrĂłt o 90 stopni (PI/2) sprawia, ĹĽe:
+    // Lokalny X (gĹ‚Ä™bokoĹ›Ä‡ listwy 25mm) -> World -Z
+    // Lokalny Y (wysokoĹ›Ä‡ listwy) -> World Y
+    // Lokalny Z (szerokoĹ›Ä‡ listwy) -> World X
+    return (
+        <group position={[-width / 2, yOffset - height / 2, depth / 2]} rotation={[0, Math.PI / 2, 0]}>
+            <mesh castShadow receiveShadow material={material}>
+                <extrudeGeometry args={[shape, { depth: width, bevelEnabled: false }]} />
+            </mesh>
+        </group>
+    );
+}
+
+
+// Komponent boku szafki z wyciÄ™ciami pod Gola
+function SidePanel({ height, depth, thickness, golaProfiles, isRight, position, material }: { height: number, depth: number, thickness: number, golaProfiles: any[], isRight: boolean, position: [number, number, number], material: any }) {
+    const shape = useMemo(() => {
+        const s = new THREE.Shape();
+        
+        // Ze wzglÄ™du na rotacjÄ™:
+        // Dla Right (-PI/2): Local X = depth/2 to PRZĂ“D (Z world)
+        // Dla Left (PI/2): Local X = -depth/2 to PRZĂ“D (Z world)
+        const frontEdge = isRight ? depth / 2 : -depth / 2;
+        const backEdge = isRight ? -depth / 2 : depth / 2;
+        const cutoutDepth = isRight ? (depth / 2 - 25) : (-depth / 2 + 25);
+
+        // Start od dolnego tylnego rogu
+        s.moveTo(backEdge, -height / 2);
+        
+        // Dolna krawÄ™dĹş do przodu
+        s.lineTo(frontEdge, -height / 2);
+        
+        // Przednia krawÄ™dĹş z wyciÄ™ciami
+        const sortedGola = [...golaProfiles].sort((a, b) => a.yOffset - b.yOffset);
+        
+        sortedGola.forEach(g => {
+             const gCenterLocal = g.yOffset - height / 2;
+             const gTop = gCenterLocal + g.height / 2;
+             const gBot = gCenterLocal - g.height / 2;
+             
+             if (g.id.includes('miedzy')) {
+                 s.lineTo(frontEdge, gBot);
+                 s.lineTo(cutoutDepth, gBot);
+                 s.lineTo(cutoutDepth, gTop);
+                 s.lineTo(frontEdge, gTop);
+             }
+        });
+        
+        // WyciÄ™cie podblatowe
+        const podblatowa = golaProfiles.find(g => g.id.includes('podblatowa'));
+        if (podblatowa) {
+             const gBot = height / 2 - 50; // Podblatowa L ma zawsze 50 (moĹĽna teĹĽ g.height/2 jeĹ›li golaProfiles.find)
+             s.lineTo(frontEdge, gBot);
+             s.lineTo(cutoutDepth, gBot);
+             s.lineTo(cutoutDepth, height / 2);
+        } else {
+             s.lineTo(frontEdge, height / 2);
+        }
+        
+        // GĂłra i tyĹ‚
+        s.lineTo(backEdge, height / 2);
+        s.lineTo(backEdge, -height / 2);
+        
+        return s;
+    }, [height, depth, golaProfiles, isRight]);
+
+    return (
+        <group position={position} rotation={[0, isRight ? -Math.PI / 2 : Math.PI / 2, 0]}>
+            <mesh castShadow receiveShadow material={material}>
+                <extrudeGeometry args={[shape, { depth: thickness, bevelEnabled: false }]} />
+            </mesh>
+        </group>
+    );
+}
+
+
 function useFrontMaterials(
     decorId: string | undefined,
     width: number,
@@ -248,7 +360,9 @@ function CabinetDrawer({
     offsetY,
     totalWidth,
     totalHeight,
-    showEdges,
+    isThreeDrawers,
+    hasGola,
+    isTopDrawer,
     children
 }: {
     position: [number, number, number];
@@ -260,6 +374,9 @@ function CabinetDrawer({
     totalWidth?: number;
     totalHeight?: number;
     showEdges?: boolean;
+    isThreeDrawers?: boolean;
+    hasGola?: boolean;
+    isTopDrawer?: boolean;
     children?: React.ReactNode;
 }) {
     const materials = useFrontMaterials(frontDecorId, width, height, "#ffffff", true, totalWidth, totalHeight, 0, offsetY || 0);
@@ -285,8 +402,25 @@ function CabinetDrawer({
     const innerWidth = width - (clearance * 2);
 
     // Ograniczamy wysokoĹ›Ä‡ bokĂłw dla bardzo niskich frontĂłw (np. 116mm w szafce dolnej piekarnikowej)
-    const sideBoxHeight = height < 130 ? 63 : 90; // Dolne metalowe boki (standard ~90, niskie N ~63)
-    const backBoxHeight = isHighDrawer ? 190 : sideBoxHeight; // StaĹ‚a wysokoĹ›Ä‡ tyĹ‚u dla wszystkich wysokich szuflad
+    let sideBoxHeight = height < 130 ? 63 : 90; // Dolne metalowe boki (standard ~90, niskie N ~63)
+    if (isTopDrawer) sideBoxHeight = 80; // ObniĹĽenie boku gĂłrnej szuflady
+    
+    let backBoxHeight = isHighDrawer ? 190 : sideBoxHeight; // StaĹ‚a wysokoĹ›Ä‡ tyĹ‚u dla wszystkich wysokich szuflad
+    
+    // ObniĹĽenie o 40mm (30+10) dla NISKIEJ gĂłrnej szuflady przy systemie Gola
+    if (!isHighDrawer && isTopDrawer && hasGola) {
+        sideBoxHeight = 50;
+        backBoxHeight = 50;
+    }
+    
+    // ObniĹĽenie relingu dla opcji 3 szuflady (z Gola i bez niej)
+    if (isHighDrawer && isThreeDrawers) {
+        if (hasGola) {
+            backBoxHeight = 145; // 35+10 = 45mm niĹĽej niĹĽ standard
+        } else {
+            backBoxHeight = 180; // 10mm niĹĽej niĹĽ standard
+        }
+    }
 
     // Lokalizacje (front jest centrum w osi Z=0, jego tyĹ‚ to Z=-9)
     const boxCenterZ = -9 - (boxDepth / 2);
@@ -1685,10 +1819,11 @@ export default function Szafka3D({
     // Front Materials are now handled by the hook above
 
 
-    // Fronts mapping helper variables
     const frontMeshes = useMemo(() => {
         return (elements || []).filter(el => el.type === 'front' && el.id !== 'front-listwa-katowa');
     }, [elements]);
+
+    const golaProfiles = useMemo(() => (elements || []).filter(e => e.type === 'gola-profile'), [elements]);
 
     // --- Geometry & Positioning ---
 
@@ -1705,6 +1840,9 @@ export default function Szafka3D({
     const leftSidePos: [number, number, number] = [-width / 2 + THICKNESS / 2, 0, 0];
     const rightSidePos: [number, number, number] = [width / 2 - THICKNESS / 2, 0, 0];
 
+    const isGola = golaProfiles.length > 0;
+    const golaRecess = isGola ? 25 : 0;
+
     const rimWidth = width - 2 * THICKNESS - 2 * GAP;
 
     const bottomRimDepth = Math.max(10, depth - technicalVoid);
@@ -1712,12 +1850,13 @@ export default function Szafka3D({
     const bottomRimPos: [number, number, number] = [0, -height / 2 + THICKNESS / 2, -depth / 2 + technicalVoid + bottomRimDepth / 2];
 
     // Full Top Rim
-    const topRimFullGeoArgs: [number, number, number] = [rimWidth, THICKNESS, bottomRimDepth]; // Same depth as bottom (recessed for back)
-    const topRimFullPos: [number, number, number] = [0, height / 2 - THICKNESS / 2, -depth / 2 + technicalVoid + bottomRimDepth / 2];
+    const topRimFullDepth = isGola ? bottomRimDepth - golaRecess : bottomRimDepth;
+    const topRimFullGeoArgs: [number, number, number] = [rimWidth, THICKNESS, topRimFullDepth]; // Recessed by golaRecess if active
+    const topRimFullPos: [number, number, number] = [0, height / 2 - THICKNESS / 2, -depth / 2 + technicalVoid + topRimFullDepth / 2];
 
     const topRimDepth = 100;
     const topRimGeoArgs: [number, number, number] = [rimWidth, THICKNESS, topRimDepth];
-    const topRimFrontPos: [number, number, number] = [0, height / 2 - THICKNESS / 2, depth / 2 - topRimDepth / 2];
+    const topRimFrontPos: [number, number, number] = [0, height / 2 - THICKNESS / 2, depth / 2 - topRimDepth / 2 - golaRecess];
     const topRimBackPos: [number, number, number] = [0, height / 2 - THICKNESS / 2, -depth / 2 + technicalVoid + topRimDepth / 2];
 
     const BACK_THICKNESS = 3;
@@ -1949,12 +2088,34 @@ export default function Szafka3D({
     const mainCabinetGroup = (
         <group position={[0, mainLegHeight / 2, 0]}>
             {/* Sides */}
-            <mesh position={leftSidePos} castShadow receiveShadow material={sideMaterials}>
-                <boxGeometry args={sideGeoArgs} />
-            </mesh>
-            <mesh position={rightSidePos} castShadow receiveShadow material={sideMaterials}>
-                <boxGeometry args={sideGeoArgs} />
-            </mesh>
+            {golaProfiles.length > 0 ? (
+                <>
+                    <SidePanel height={height} depth={depth} thickness={THICKNESS} golaProfiles={golaProfiles} isRight={false} position={[-width / 2, 0, 0]} material={sideMaterials} />
+                    <SidePanel height={height} depth={depth} thickness={THICKNESS} golaProfiles={golaProfiles} isRight={true} position={[width / 2, 0, 0]} material={sideMaterials} />
+                </>
+            ) : (
+                <>
+                    <mesh position={leftSidePos} castShadow receiveShadow material={sideMaterials}>
+                        <boxGeometry args={sideGeoArgs} />
+                    </mesh>
+                    <mesh position={rightSidePos} castShadow receiveShadow material={sideMaterials}>
+                        <boxGeometry args={sideGeoArgs} />
+                    </mesh>
+                </>
+            )}
+
+            {/* Gola Profiles */}
+            {golaProfiles.map(g => (
+                <GolaProfile 
+                    key={g.id} 
+                    variant={g.variant} 
+                    width={g.width} 
+                    height={g.height} 
+                    yOffset={g.yOffset - height / 2} 
+                    depth={depth}
+                    bodyColor={bodyColor || "#ffffff"} 
+                />
+            ))}
 
             {type !== 'gorna-okapowa' && (
                 <mesh position={bottomRimPos} castShadow receiveShadow material={rimMaterials}>
@@ -2976,16 +3137,17 @@ export default function Szafka3D({
                             if (f.id.includes('wewnetrzn')) {
                                 yOffset = height / 2 - 100 - f.height / 2 - 2; // Pod gĂłrnym wieĹ„cem pionowym (100mm)
                                 zOffset = -18; // CofniÄ™cie o 18mm w gĹ‚Ä…b w stosunku do gĹ‚Ăłwnego frontu
-                            } else if (f.height === height || f.height === height - 4 || (type?.startsWith('gorna-') && f.height > height - 10)) {
-                                yOffset = 0;
+                            } else if (f.height === height || f.height === height - 4 || (type?.startsWith('gorna-') && f.height > height - 10) || (golaProfiles.length > 0 && f.height >= height - 30)) {
+                                yOffset = golaProfiles.length > 0 ? -12.5 : 0;
                             } else if (type === 'dolna-piekarnik-podblatowa') {
                                 yOffset = -height / 2 + f.height / 2 + 2;
                             } else if (!type?.startsWith('gorna-') && type !== 'dolna-narozna' && type !== 'gorna-narozna' && type !== 'dolna-piekarnik' && !type?.startsWith('dolna-lodowka') && frontMeshes.length > 1) {
                                 // Gdy w szafce dolnej sÄ… szuflady (sterta), budujemy je w pÄ™tli od doĹ‚u do gĂłry
                                 // height = dany front, total u doĹ‚u to akumulacja poprzednich
                                 let acc = 0;
+                                const isGola = golaProfiles.length > 0;
                                 for (let j = 0; j < i; j++) {
-                                    acc += frontMeshes[j].height + 3; // 3mm szczeliny
+                                    acc += frontMeshes[j].height + (isGola ? 29 : 3); // 25mm extra gap for Gola + 3mm or 4mm base
                                 }
                                 yOffset = -height / 2 + acc + f.height / 2 + 2; // 2mm luzu od doĹ‚u
                             } else if (type === 'dolna-piekarnik') {
@@ -3140,8 +3302,14 @@ export default function Szafka3D({
                                 const isDrawer = f.id.includes('szuflad') || (!hasHinges && !f.id.includes('klapa') && f.width > 200 && f.height > 100 && type !== 'dolna-narozna' && type !== 'gorna-narozna' && !type?.startsWith('dolna-lodowka') && type !== 'dolna-piekarnik');
 
                                 if (isDrawer) {
+                                    const isThreeDrawers = configUnder.some(o => o === '3 szuflady');
+                                    const hasGola = golaProfiles.length > 0;
+                                    // Znajdujemy czy to najwyĹĽsza szuflada w zestawie
+                                    const drawerFronts = regularFronts.filter(rf => rf.id.includes('szuflad'));
+                                    const isTopDrawer = drawerFronts[drawerFronts.length - 1]?.id === f.id;
+
                                     return (
-                                        <CabinetDrawer key={`f-${i}`} position={[0, yOffset + (f.offsetY || 0), zOffset]} width={f.width} height={f.height} depth={depth} frontDecorId={frontDecorId} offsetY={yOffset + (f.offsetY || 0) - f.height / 2 + height / 2} totalWidth={width} totalHeight={height} showEdges={showEdges} />
+                                        <CabinetDrawer key={`f-${i}`} position={[0, yOffset + (f.offsetY || 0), zOffset]} width={f.width} height={f.height} depth={depth} frontDecorId={frontDecorId} offsetY={yOffset + (f.offsetY || 0) - f.height / 2 + height / 2} totalWidth={width} totalHeight={height} showEdges={showEdges} isThreeDrawers={isThreeDrawers} hasGola={hasGola} isTopDrawer={isTopDrawer} />
                                     );
                                 }
 

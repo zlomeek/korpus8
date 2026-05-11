@@ -7,6 +7,8 @@ export interface PricingSettings {
     pricePerM2Back: number;
     pricePerLeg: number;
     pricePerM2Countertop?: number;
+    pricePerMLGolaL?: number;
+    pricePerMLGolaC?: number;
 }
 
 export interface CalculationResult {
@@ -16,6 +18,7 @@ export interface CalculationResult {
     backCost: number;
     legsCount: number;
     legsCost: number;
+    golaCost: number;
     total: number;
 }
 
@@ -24,6 +27,8 @@ export const defaultPricingSettings: PricingSettings = {
     pricePerM2Back: 30,
     pricePerLeg: 4,
     pricePerM2Countertop: 250,
+    pricePerMLGolaL: 60,
+    pricePerMLGolaC: 85,
 };
 
 export function calculateCabinet(cabinet: Cabinet, settings: PricingSettings = defaultPricingSettings): CalculationResult {
@@ -42,12 +47,14 @@ export function calculateCabinet(cabinet: Cabinet, settings: PricingSettings = d
             backCost: 0,
             legsCount: 0,
             legsCost: 0,
+            golaCost: 0,
             total: Number(cost.toFixed(2))
         };
     }
 
     let totalM2Body = 0;
     let totalM2Back = 0;
+    let golaCost = 0;
 
     // STRICT RULE: Cabinet consists ONLY of fixed elements.
     // We ignore cabinet.elements and calculate based on master dimensions.
@@ -121,22 +128,33 @@ export function calculateCabinet(cabinet: Cabinet, settings: PricingSettings = d
 
         const areaM2 = areaMM2 / 1000000;
 
-        // Note: For custom generated parts with both width and depth that are not standard shapes,
-        // their calculated area based on bounding box width x depth will be correctly used.
-
-        // We check both ID and Name to be safe, case-insensitive
-        // EXCEPTION: "Plecy 18mm" is structural board, so it should count as Body, not Back (HDF).
-        const isStructureBack = el.name.includes("18mm") || el.id.includes("18mm");
-        const isBack = !isStructureBack && (el.id.toLowerCase().includes("plecy") || el.name.toLowerCase().includes("plecy"));
-
-        if (isBack) {
-            totalM2Back += areaM2;
+        if ((el as any).type === 'gola-profile') {
+            const pricePerM = (el as any).variant === 'C' ? (settings.pricePerMLGolaC || 85) : (settings.pricePerMLGolaL || 60);
+            golaCost += ((el as any).width / 1000) * pricePerM;
         } else {
-            totalM2Body += areaM2;
+            // Note: For custom generated parts with both width and depth that are not standard shapes,
+            // their calculated area based on bounding box width x depth will be correctly used.
+
+            // We check both ID and Name to be safe, case-insensitive
+            // EXCEPTION: "Plecy 18mm" is structural board, so it should count as Body, not Back (HDF).
+            const isStructureBack = el.name.includes("18mm") || el.id.includes("18mm");
+            const isBack = !isStructureBack && (el.id.toLowerCase().includes("plecy") || el.name.toLowerCase().includes("plecy"));
+
+            if (isBack) {
+                totalM2Back += areaM2;
+            } else {
+                totalM2Body += areaM2;
+            }
         }
     });
 
-    const boardCost = totalM2Body * settings.pricePerM2Body;
+    let boardCost = totalM2Body * settings.pricePerM2Body;
+    
+    // Apply custom width premium (1.5x) ONLY to board cost
+    if ((cabinet as any).isCustomWidth) {
+        boardCost = boardCost * 1.5;
+    }
+
     const backCost = totalM2Back * settings.pricePerM2Back;
 
     // Legs calculation based on cabinet width
@@ -158,20 +176,16 @@ export function calculateCabinet(cabinet: Cabinet, settings: PricingSettings = d
     }
 
     const legsCost = legsCount * settings.pricePerLeg;
-    let total = boardCost + backCost + legsCost;
-
-    // Apply custom width premium (1.5x)
-    if ((cabinet as any).isCustomWidth) {
-        total = total * 1.5;
-    }
+    const total = boardCost + backCost + legsCost + golaCost;
 
     return {
         totalM2Body: Number(totalM2Body.toFixed(4)),
         totalM2Back: parseFloat(totalM2Back.toFixed(6)),
-        boardCost: parseFloat(boardCost.toFixed(2)),
+        boardCost: Number(boardCost.toFixed(2)),
         backCost: parseFloat(backCost.toFixed(2)),
         legsCount,
         legsCost: parseFloat(legsCost.toFixed(2)),
+        golaCost: parseFloat(golaCost.toFixed(2)),
         total: parseFloat(total.toFixed(2)),
     };
 }
@@ -790,14 +804,14 @@ export function generateFixedElements(
         } else if (cabinetId === 'dolna-piekarnik') {
             // Front pod i nad piekarnikiem
             const isLoweredOven = configUnder?.includes('Obniżenie piekarnika o 1 szufladę (14 cm)');
-            const bottomSpaceForDoors = isLoweredOven ? (ovenBaseHeight - 140) : ovenBaseHeight; 
+            const bottomSpaceForDoors = isLoweredOven ? (ovenBaseHeight - 140) : ovenBaseHeight;
             const topSpaceH = height - (bottomSpaceForDoors + ovenSpaceHeight + 18 + microwaveSpaceHeight + 18);
 
             if (bottomSpaceForDoors > 0) {
                 if (configUnder?.includes('3 szuflady (2 wysokie jedna niska)')) {
                     // Szuflady na dole - dla 3 szuflad bazą jest zawsze pełna wysokość (720), bo po prostu usuwamy jedną
                     const baseH = ovenBaseHeight || 720;
-                    const hLowSection = 140; 
+                    const hLowSection = 140;
                     const hHighSection = Math.floor((baseH - hLowSection) / 2);
                     elements.push({ id: 'front-szuflada-1-piekarnik', name: 'Front szuflady (wysoka)', width: width - 4, height: hHighSection - 4, type: 'front', material: frontMaterial });
                     elements.push({ id: 'front-szuflada-2-piekarnik', name: 'Front szuflady (wysoka)', width: width - 4, height: (baseH - hLowSection - hHighSection) - 4, type: 'front', material: frontMaterial });
@@ -827,59 +841,229 @@ export function generateFixedElements(
             }
         } else {
             // Szafki standardowe dopasowane do `configUnder` lub `configAbove`
+            const hasGola = configUnder.some(o => o.startsWith('Listwa korytkowa(PEKA)'));
+            const GOLA_VISIBLE_H = 25;
+            const GOLA_TOTAL_H = 50; // Podblatowa
+            const GOLA_MID_H = 64;   // MiÄ™dzyszafkowa
+
             const hasDrawers = configsToParse.some(o => o.toLowerCase().includes('szuflad'));
             const hasDoors = configsToParse.some(o => o.toLowerCase().includes('drzwi'));
             const hasActuators = configsToParse.some(o => o.toLowerCase().includes('siłow'));
             const hasCargo = configsToParse.includes('Cargo');
 
             if (hasCargo) {
-                elements.push({ id: 'front-cargo', name: 'Front (Cargo)', width: width - 4, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
+                const cargoH = hasGola ? finalFrontHeight - GOLA_VISIBLE_H : finalFrontHeight;
+                elements.push({ id: 'front-cargo', name: 'Front (Cargo)', width: width - 4, height: cargoH, type: 'front', material: frontMaterial });
+                
+                if (hasGola) {
+                    elements.push({
+                        id: 'gola-podblatowa',
+                        name: 'Listwa korytkowa (Podblatowa)',
+                        type: 'gola-profile',
+                        variant: 'L',
+                        width: width - 36,
+                        height: GOLA_TOTAL_H,
+                        yOffset: height - GOLA_TOTAL_H / 2
+                    });
+                }
             } else if (hasDrawers) {
                 if (configsToParse.includes('1 szuflada')) {
-                    elements.push({ id: 'front-szuflada-1', name: 'Front szuflady', width: width - 4, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
+                    const h = hasGola ? finalFrontHeight - GOLA_VISIBLE_H : finalFrontHeight;
+                    elements.push({ id: 'front-szuflada-1', name: 'Front szuflady', width: width - 4, height: h, type: 'front', material: frontMaterial });
+                    
+                    if (hasGola) {
+                        elements.push({
+                            id: 'gola-podblatowa',
+                            name: 'Listwa korytkowa (Podblatowa)',
+                            type: 'gola-profile',
+                            variant: 'L',
+                            width: width,
+                            height: GOLA_TOTAL_H,
+                            yOffset: height - GOLA_TOTAL_H / 2
+                        });
+                    }
                 } else if (configsToParse.includes('2 szuflady (główna + wewnętrzna)')) {
-                    // Główny front (zewnętrzny na całą wysokość)
-                    elements.push({ id: 'front-szuflada-glowna', name: 'Front szuflady (główna)', width: width - 4, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
-                    // Wewnętrzny front (za głównym, pod wieńcem pionowym, wewnątrz szafki)
-                    // Wymiar wewnętrzny na szerokość to szerokość - 36 (boki), z małym luzem po bokach damy width - 44
+                    const h = hasGola ? finalFrontHeight - GOLA_VISIBLE_H : finalFrontHeight;
+                    elements.push({ id: 'front-szuflada-glowna', name: 'Front szuflady (główna)', width: width - 4, height: h, type: 'front', material: frontMaterial });
                     elements.push({ id: 'front-szuflada-wewnetrzna', name: 'Front szuflady (wewnętrzna)', width: width - 44, height: 140, type: 'front', material: frontMaterial });
+                    
+                    if (hasGola) {
+                        elements.push({
+                            id: 'gola-podblatowa',
+                            name: 'Listwa korytkowa (Podblatowa)',
+                            type: 'gola-profile',
+                            variant: 'L',
+                            width: width,
+                            height: GOLA_TOTAL_H,
+                            yOffset: height - GOLA_TOTAL_H / 2
+                        });
+                    }
                 } else if (configsToParse.includes('2 szuflady')) {
-                    const h = Math.floor((height - 8) / 2);
-                    elements.push({ id: 'front-szuflada-1', name: 'Front szuflady', width: width - 4, height: h, type: 'front', material: frontMaterial });
-                    elements.push({ id: 'front-szuflada-2', name: 'Front szuflady', width: width - 4, height: height - h - 8, type: 'front', material: frontMaterial });
+                    const hBase = Math.floor((height - 8) / 2);
+                    const h1 = hasGola ? hBase - GOLA_VISIBLE_H : hBase;
+                    const h2 = hasGola ? (height - hBase - 8) - GOLA_VISIBLE_H : (height - hBase - 8);
+                    
+                    elements.push({ id: 'front-szuflada-1', name: 'Front szuflady', width: width - 4, height: h1, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-szuflada-2', name: 'Front szuflady', width: width - 4, height: h2, type: 'front', material: frontMaterial });
+                    
+                    if (hasGola) {
+                        elements.push({
+                            id: 'gola-podblatowa',
+                            name: 'Listwa korytkowa (Podblatowa)',
+                            type: 'gola-profile',
+                            variant: 'L',
+                            width: width,
+                            height: GOLA_TOTAL_H,
+                            yOffset: height - GOLA_TOTAL_H / 2
+                        });
+                        elements.push({
+                            id: 'gola-miedzy-1',
+                            name: 'Listwa korytkowa (Między szafkowa)',
+                            type: 'gola-profile',
+                            variant: 'C',
+                            width: width,
+                            height: GOLA_MID_H,
+                            yOffset: h1 + 16.5
+                        });
+                    }
                 } else if (configsToParse.includes('3 szuflady')) {
-                    const h = Math.floor((height - 12) / 3);
-                    elements.push({ id: 'front-szuflada-1', name: 'Front szuflady', width: width - 4, height: h, type: 'front', material: frontMaterial });
-                    elements.push({ id: 'front-szuflada-2', name: 'Front szuflady', width: width - 4, height: h, type: 'front', material: frontMaterial });
-                    elements.push({ id: 'front-szuflada-3', name: 'Front szuflady', width: width - 4, height: height - 2 * h - 12, type: 'front', material: frontMaterial });
+                    const hBase = Math.floor((height - 12) / 3);
+                    const h1 = hasGola ? hBase - GOLA_VISIBLE_H : hBase;
+                    const h2 = hasGola ? hBase - GOLA_VISIBLE_H : hBase;
+                    const h3 = hasGola ? (height - 2 * hBase - 12) - GOLA_VISIBLE_H : (height - 2 * hBase - 12);
+
+                    elements.push({ id: 'front-szuflada-1', name: 'Front szuflady', width: width - 4, height: h1, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-szuflada-2', name: 'Front szuflady', width: width - 4, height: h2, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-szuflada-3', name: 'Front szuflady', width: width - 4, height: h3, type: 'front', material: frontMaterial });
+
+                    if (hasGola) {
+                        elements.push({
+                            id: 'gola-podblatowa',
+                            name: 'Listwa korytkowa (Podblatowa)',
+                            type: 'gola-profile',
+                            variant: 'L',
+                            width: width,
+                            height: GOLA_TOTAL_H,
+                            yOffset: height - GOLA_TOTAL_H / 2
+                        });
+                        elements.push({
+                            id: 'gola-miedzy-1',
+                            name: 'Listwa korytkowa (Między szafkowa)',
+                            type: 'gola-profile',
+                            variant: 'C',
+                            width: width,
+                            height: GOLA_MID_H,
+                            yOffset: h1 + 16.5
+                        });
+                        elements.push({
+                            id: 'gola-miedzy-2',
+                            name: 'Listwa korytkowa (Między szafkowa)',
+                            type: 'gola-profile',
+                            variant: 'C',
+                            width: width,
+                            height: GOLA_MID_H,
+                            yOffset: h1 + 29 + h2 + 16.5
+                        });
+                    }
                 } else if (configsToParse.includes('3 szuflady (2 wysokie jedna niska)')) {
-                    const hLowSection = 140; // Niska 14cm calkowitej przestrzeni wneki
-                    const hHighSection = Math.floor((height - hLowSection) / 2);
-                    elements.push({ id: 'front-szuflada-1', name: 'Front szuflady (wysoka)', width: width - 4, height: hHighSection - 4, type: 'front', material: frontMaterial });
-                    elements.push({ id: 'front-szuflada-2', name: 'Front szuflady (wysoka)', width: width - 4, height: (height - hLowSection - hHighSection) - 4, type: 'front', material: frontMaterial });
-                    elements.push({ id: 'front-szuflada-3', name: 'Front szuflady (niska)', width: width - 4, height: hLowSection - 4, type: 'front', material: frontMaterial });
+                    const hLowSection = 140;
+                    const hHighBase = Math.floor((height - hLowSection) / 2);
+                    
+                    const h1 = hasGola ? hHighBase - 4 - GOLA_VISIBLE_H : hHighBase - 4;
+                    const h2 = hasGola ? (height - hLowSection - hHighBase) - 4 - GOLA_VISIBLE_H : (height - hLowSection - hHighBase) - 4;
+                    const h3 = hasGola ? hLowSection - 4 - GOLA_VISIBLE_H : hLowSection - 4;
+
+                    elements.push({ id: 'front-szuflada-1', name: 'Front szuflady (wysoka)', width: width - 4, height: h1, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-szuflada-2', name: 'Front szuflady (wysoka)', width: width - 4, height: h2, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-szuflada-3', name: 'Front szuflady (niska)', width: width - 4, height: h3, type: 'front', material: frontMaterial });
+
+                    if (hasGola) {
+                        elements.push({
+                            id: 'gola-podblatowa',
+                            name: 'Listwa korytkowa (Podblatowa)',
+                            type: 'gola-profile',
+                            variant: 'L',
+                            width: width,
+                            height: GOLA_TOTAL_H,
+                            yOffset: height - GOLA_TOTAL_H / 2
+                        });
+                        elements.push({
+                            id: 'gola-miedzy-1',
+                            name: 'Listwa korytkowa (Między szafkowa)',
+                            type: 'gola-profile',
+                            variant: 'C',
+                            width: width,
+                            height: GOLA_MID_H,
+                            yOffset: h1 + 16.5
+                        });
+                        elements.push({
+                            id: 'gola-miedzy-2',
+                            name: 'Listwa korytkowa (Między szafkowa)',
+                            type: 'gola-profile',
+                            variant: 'C',
+                            width: width,
+                            height: GOLA_MID_H,
+                            yOffset: h1 + 29 + h2 + 16.5
+                        });
+                    }
                 }
             } else if (hasDoors) {
+                const h = hasGola ? finalFrontHeight - GOLA_VISIBLE_H : finalFrontHeight;
+                
                 if (configsToParse.includes('Para drzwi') || width > 600) {
                     const w = Math.floor((width - 8) / 2);
-                    elements.push({ id: 'front-drzwi-1', name: 'Front (Para drzwi - lewy)', width: w, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
-                    elements.push({ id: 'front-drzwi-2', name: 'Front (Para drzwi - prawy)', width: width - w - 8, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-drzwi-1', name: 'Front (Para drzwi - lewy)', width: w, height: h, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-drzwi-2', name: 'Front (Para drzwi - prawy)', width: width - w - 8, height: h, type: 'front', material: frontMaterial });
                 } else {
-                    // Pojedyncze drzwi
-                    elements.push({ id: 'front-drzwi', name: 'Front', width: width - 4, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-drzwi', name: 'Front', width: width - 4, height: h, type: 'front', material: frontMaterial });
+                }
+                
+                if (hasGola) {
+                    elements.push({
+                        id: 'gola-podblatowa',
+                        name: 'Listwa korytkowa (Podblatowa)',
+                        type: 'gola-profile',
+                        variant: 'L',
+                        width: width,
+                        height: GOLA_TOTAL_H,
+                        yOffset: height - GOLA_TOTAL_H / 2
+                    });
                 }
             } else if (hasActuators) {
-                // Siłowniki (klapa podnoszona do góry) - traktujemy wymiarowo tak samo jak jedne drzwi
-                elements.push({ id: 'front-klapa', name: 'Front (klapa na siłownikach)', width: width - 4, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
+                const h = hasGola ? finalFrontHeight - GOLA_VISIBLE_H : finalFrontHeight;
+                elements.push({ id: 'front-klapa', name: 'Front (klapa na siłownikach)', width: width - 4, height: h, type: 'front', material: frontMaterial });
+                
+                if (hasGola) {
+                    elements.push({
+                        id: 'gola-podblatowa',
+                        name: 'Listwa korytkowa (Podblatowa)',
+                        type: 'gola-profile',
+                        variant: 'L',
+                        width: width,
+                        height: GOLA_TOTAL_H,
+                        yOffset: height - GOLA_TOTAL_H / 2
+                    });
+                }
             } else {
-                // Gdy zaznaczono opcję 'Fronty zewnętrzne', ale nie wybrano specyficznych nawiertów w konfiguracji
-                // Domyślnie wstawiamy pojedyncze drzwi o pełnym wymiarze (lub podzielone dla szerokich szafek), aby upewnić się, że szafka nie jest pusta.
+                const h = hasGola ? finalFrontHeight - GOLA_VISIBLE_H : finalFrontHeight;
                 if (width > 600) {
                     const w = Math.floor((width - 8) / 2);
-                    elements.push({ id: 'front-drzwi-1', name: 'Front (Para drzwi - lewy)', width: w, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
-                    elements.push({ id: 'front-drzwi-2', name: 'Front (Para drzwi - prawy)', width: width - w - 8, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-drzwi-1', name: 'Front (Para drzwi - lewy)', width: w, height: h, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-drzwi-2', name: 'Front (Para drzwi - prawy)', width: width - w - 8, height: h, type: 'front', material: frontMaterial });
                 } else {
-                    elements.push({ id: 'front-drzwi', name: 'Front', width: width - 4, height: finalFrontHeight, offsetY: frontOffsetY, type: 'front', material: frontMaterial });
+                    elements.push({ id: 'front-drzwi', name: 'Front', width: width - 4, height: h, type: 'front', material: frontMaterial });
+                }
+                
+                if (hasGola) {
+                    elements.push({
+                        id: 'gola-podblatowa',
+                        name: 'Listwa korytkowa (Podblatowa)',
+                        type: 'gola-profile',
+                        variant: 'L',
+                        width: width,
+                        height: GOLA_TOTAL_H,
+                        yOffset: height - GOLA_TOTAL_H / 2
+                    });
                 }
             }
         }

@@ -238,6 +238,9 @@ export default function CustomCabinetForm({ settings, onClose, onAddToCart }: Cu
                         <p>Korpus: {calculation.boardCost.toFixed(2)} PLN</p>
                         <p>Plecy: {calculation.backCost.toFixed(2)} PLN</p>
                         <p>Nogi ({calculation.legsCount} szt.): {calculation.legsCost.toFixed(2)} PLN</p>
+                        {calculation.golaCost > 0 && (
+                            <p>Listwy korytkowe: {calculation.golaCost.toFixed(2)} PLN</p>
+                        )}
                         <p className={styles.total}>Razem: {calculation.total.toFixed(2)} PLN</p>
                     </div>
 
